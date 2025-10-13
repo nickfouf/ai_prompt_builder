@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Prompt Builder</title>
+    <style>
+        /* ... (All styles remain exactly the same as before) ... */
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        button {
+            padding: 10px 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 10px;
+            vertical-align: middle;
+            transition: background-color 0.2s;
+        }
+        h1 { margin-top: 0; color: #333; }
+        #back-btn { background-color: #6c757d; color: white; margin-right: 5px; }
+        #add, #add-folder { background-color: #4CAF50; color: white; margin-left: 5px; }
+        #copy { background-color: #2196F3; color: white; margin-left: 10px; }
+        #clear-btn { background-color: #f44336; color: white; margin-left: auto; }
+        #improve-btn { background-color: #ffc107; color: white; margin-left: 10px; }
+        #back-btn:hover { background-color: #5a6268; }
+        #add:hover, #add-folder:hover { background-color: #45a049; }
+        #copy:hover { background-color: #1e88e5; }
+        #clear-btn:hover { background-color: #e53935; }
+        #improve-btn:hover { background-color: #e0a800; }
+        #improve-btn:disabled {
+            background-color: #ffe08a;
+            cursor: not-allowed;
+        }
+        #file-list-container {
+            width: calc(100% - 22px);
+            height: calc(100vh - 390px);
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            overflow-y: auto;
+            position: relative;
+        }
+        #file-list-container.drag-over {
+            border-color: #007bff;
+            border-style: dashed;
+            background-color: #e7f3ff;
+        }
+        #file-list-container.drag-over::before {
+            content: 'Drop files and folders here';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #007bff;
+            font-size: 1.2em;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        .file-tree, .file-tree ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .file-tree ul {
+            padding-left: 24px;
+        }
+        .file-tree li {
+            padding: 2px 0;
+            position: relative;
+            white-space: nowrap;
+        }
+        .file-tree-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 0;
+        }
+        .toggle-btn {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .toggle-btn.enabled {
+            background-color: #2196F3;
+            border-color: #1e88e5;
+        }
+        .toggle-btn.enabled::after {
+            content: '✔';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            line-height: 1;
+        }
+        .disabled .file-tree-item-name {
+            color: #999;
+            text-decoration: line-through;
+        }
+        .toggle-btn.unsupported {
+            cursor: not-allowed;
+            background-color: #e0e0e0;
+            border-color: #ccc;
+        }
+        .toggle-btn.unsupported:hover {
+            background-color: #e0e0e0;
+        }
+        .toggle-btn.unsupported.enabled::after {
+            content: '';
+        }
+        .is-unsupported .file-tree-item-name {
+            text-decoration: line-through;
+            color: #999;
+        }
+        .file-tree-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+        .folder-icon::before { content: '📁'; }
+        .file-icon::before { content: '📄'; }
+        .remove-btn {
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            color: #aaa;
+            padding: 0 5px;
+            border-radius: 4px;
+            line-height: 1;
+            margin-left: auto;
+            margin-right: 5px;
+        }
+        .remove-btn:hover { color: white; background-color: #f44336; }
+        #copy-notification { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; margin-left: 15px; font-size: 14px; opacity: 0; display: none; transition: opacity 0.3s ease, display 0.3s ease; }
+        #copy-notification.visible { opacity: 1; display: inline-block; }
+        #no-improvement-hint {
+            background-color: #6c757d;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-left: 10px;
+            font-size: 14px;
+            vertical-align: middle;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #no-improvement-hint.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #prompt-container {
+            margin-top: 15px;
+        }
+        #prompt-container label {
+            display: inline-block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+            vertical-align: middle;
+        }
+        #prompt-input {
+            width: calc(100% - 22px);
+            height: 150px;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            resize: none;
+        }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1; visibility: visible;
+        }
+        .modal-content {
+            background: white; padding: 25px 30px; border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%; max-width: 500px;
+        }
+        .modal-content p { margin: 0 0 20px 0; font-size: 18px; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 15px; }
+        .modal-buttons button {
+            padding: 10px 25px; font-size: 16px; border-radius: 8px;
+            border: none; cursor: pointer; transition: background-color 0.2s;
+        }
+        #approve-btn { background-color: #28a745; color: white; }
+        #approve-btn:hover { background-color: #218838; }
+        #reject-btn { background-color: #6c757d; color: white; }
+        #reject-btn:hover { background-color: #5a6268; }
+        #clear-approve-btn { background-color: #dc3545; color: white; }
+        #clear-approve-btn:hover { background-color: #c82333; }
+        #clear-reject-btn { background-color: #6c757d; color: white; }
+        #clear-reject-btn:hover { background-color: #5a6268; }
+        #prompt-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        #prompt-header label, #prompt-header button, #prompt-header #no-improvement-hint {
+            margin: 0;
+        }
+        #copy .shortcut {
+            display: block;
+            font-size: 10px;
+            font-weight: normal;
+            color: #d0eaff;
+            margin-top: 2px;
+        }
+        #top-button-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="top-button-container">
+    <button id="back-btn">&larr;</button>
+    <button id="add">Add File(s)</button>
+    <button id="add-folder">Add Folder</button>
+    <button id="copy">Copy Markdown<span class="shortcut">(Ctrl + Shift + C)</span></button>
+    <span id="copy-notification">Copied!</span>
+    <button id="clear-btn">Clear All</button>
+</div>
+<br/>
+<div id="file-list-container"></div>
+<div id="prompt-container">
+    <div id="prompt-header">
+        <label>Prompt</label>
+        <button id="improve-btn">Improve</button>
+        <span id="no-improvement-hint">No improvement suggestions...</span>
+    </div>
+    <textarea id="prompt-input" placeholder="Enter your prompt for the AI here..."></textarea>
+</div>
+
+<div id="improve-dialog" class="modal-overlay">
+    <div class="modal-content">
+        <p>We suggest the following improvement:</p>
+        <div id="suggestion-display" style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 20px; white-space: pre-wrap; font-family: monospace;"></div>
+        <div class="modal-buttons">
+            <button id="reject-btn">Reject</button>
+            <button id="approve-btn">Approve</button>
+        </div>
+    </div>
+</div>
+
+<div id="clear-confirm-dialog" class="modal-overlay">
+    <div class="modal-content">
+        <p>Are you sure you want to clear all files and folders?</p>
+        <div class="modal-buttons">
+            <button id="clear-reject-btn">No</button>
+            <button id="clear-approve-btn">Yes</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    const fileListContainer = document.getElementById('file-list-container');
+    const copyNotification = document.getElementById('copy-notification');
+    const promptInput = document.getElementById('prompt-input');
+    const improveBtn = document.getElementById('improve-btn');
+    const improveDialog = document.getElementById('improve-dialog');
+    const suggestionDisplay = document.getElementById('suggestion-display');
+    const approveBtn = document.getElementById('approve-btn');
+    const rejectBtn = document.getElementById('reject-btn');
+    const noImprovementHint = document.getElementById('no-improvement-hint');
+    const clearConfirmDialog = document.getElementById('clear-confirm-dialog');
+    const clearApproveBtn = document.getElementById('clear-approve-btn');
+    const clearRejectBtn = document.getElementById('clear-reject-btn');
+
+
+    let copyTimeoutId;
+    let noImprovementTimeout;
+    let currentFiles = [];
+    let dragCounter = 0;
+
+    function syncFileListWithMain() {
+        window.electronAPI.updateFileList(currentFiles);
+    }
+
+    // --- Button Event Listeners ---
+    document.getElementById('back-btn').addEventListener('click', () => { window.electronAPI.showTemplates(); });
+    document.getElementById('add').addEventListener('click', () => { window.electronAPI.pickFiles(); });
+    document.getElementById('add-folder').addEventListener('click', () => { window.electronAPI.pickFolder(); });
+    document.getElementById('copy').addEventListener('click', async () => {
+        if (currentFiles.length === 0) return;
+        const promptText = document.getElementById('prompt-input').value;
+        await window.electronAPI.reloadAndCopy({ files: currentFiles, prompt: promptText });
+        clearTimeout(copyTimeoutId);
+        copyNotification.classList.add('visible');
+        copyTimeoutId = setTimeout(() => { copyNotification.classList.remove('visible'); }, 2000);
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        if (currentFiles.length > 0) {
+            clearConfirmDialog.classList.add('visible');
+        }
+    });
+
+    clearApproveBtn.addEventListener('click', () => {
+        fileListContainer.innerHTML = '';
+        currentFiles = [];
+        syncFileListWithMain();
+        clearConfirmDialog.classList.remove('visible');
+    });
+
+    clearRejectBtn.addEventListener('click', () => {
+        clearConfirmDialog.classList.remove('visible');
+    });
+
+
+    improveBtn.addEventListener('click', async () => {
+        const originalText = promptInput.value;
+        if (!originalText.trim()) {
+            return;
+        }
+        try {
+            improveBtn.textContent = 'Improving...';
+            improveBtn.disabled = true;
+            const improvedText = await window.electronAPI.improvePrompt(originalText);
+            if (improvedText && improvedText !== originalText) {
+                suggestionDisplay.textContent = improvedText;
+                improveDialog.classList.add('visible');
+            } else {
+                clearTimeout(noImprovementTimeout);
+                noImprovementHint.classList.add('visible');
+                noImprovementTimeout = setTimeout(() => {
+                    noImprovementHint.classList.remove('visible');
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Improvement request failed:', error);
+        } finally {
+            improveBtn.textContent = 'Improve';
+            improveBtn.disabled = false;
+        }
+    });
+
+    approveBtn.addEventListener('click', () => {
+        const improvedText = suggestionDisplay.textContent;
+        promptInput.focus();
+        promptInput.select();
+        document.execCommand('insertText', false, improvedText);
+        improveDialog.classList.remove('visible');
+    });
+
+    rejectBtn.addEventListener('click', () => {
+        improveDialog.classList.remove('visible');
+    });
+
+
+    fileListContainer.addEventListener('click', (event) => {
+        const listItem = event.target.closest('li');
+        if (!listItem) return;
+
+        const path = listItem.dataset.path;
+        const type = listItem.dataset.type;
+
+        if (event.target.matches('.remove-btn')) {
+            if (type === 'file') {
+                currentFiles = currentFiles.filter(f => f.path !== path);
+            } else if (type === 'folder') {
+                currentFiles = currentFiles.filter(f => {
+                    const normalizedDisplayPath = f.displayPath.replace(/\\/g, '/');
+                    return !normalizedDisplayPath.startsWith(path + '/') && normalizedDisplayPath !== path;
+                });
+            }
+            syncFileListWithMain();
+            renderFileTree(currentFiles);
+        }
+
+        if (event.target.matches('.toggle-btn')) {
+            if (listItem.classList.contains('is-unsupported')) {
+                return;
+            }
+            const isEnabled = !listItem.classList.contains('disabled');
+            window.electronAPI.setFileState({ path, type, enabled: !isEnabled });
+        }
+    });
+
+    // --- Drag and Drop Event Listeners ---
+    fileListContainer.addEventListener('dragenter', (event) => {
+        event.preventDefault();
+        dragCounter++;
+        fileListContainer.classList.add('drag-over');
+    });
+
+    fileListContainer.addEventListener('dragover', (event) => {
+        event.preventDefault();
+    });
+
+    fileListContainer.addEventListener('dragleave', (event) => {
+        event.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+            fileListContainer.classList.remove('drag-over');
+        }
+    });
+
+
+    fileListContainer.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dragCounter = 0;
+        fileListContainer.classList.remove('drag-over');
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            // Convert FileList to Array and pass to preload
+            window.electronAPI.handleDrop(Array.from(files));
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'c')) {
+            event.preventDefault();
+            document.getElementById('copy').click();
+        }
+    });
+
+
+    // --- Build and Render Tree Functions ---
+    function buildTree(files) {
+        const tree = {};
+        for (const file of files) {
+            const parts = file.displayPath.split(/[\\/]/);
+            let currentLevel = tree;
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                if (i === parts.length - 1) {
+                    currentLevel[part] = {
+                        isFile: true,
+                        enabled: file.enabled,
+                        fullPath: file.path,
+                        unsupported: file.unsupported
+                    };
+                } else {
+                    currentLevel[part] = currentLevel[part] || { isFile: false, children: {} };
+                    currentLevel = currentLevel[part].children;
+                }
+            }
+        }
+        function checkFolderStatus(node) {
+            let anyChildEnabled = false;
+            Object.values(node.children || {}).forEach(child => {
+                const childIsEnabled = child.isFile ? child.enabled : checkFolderStatus(child);
+                if (childIsEnabled) anyChildEnabled = true;
+            });
+            node.enabled = anyChildEnabled;
+            return anyChildEnabled;
+        }
+        Object.values(tree).forEach(rootNode => {
+            if (!rootNode.isFile) checkFolderStatus(rootNode);
+        });
+        return tree;
+    }
+
+    function generateHtmlForTree(treeNode, currentPath = '') {
+        const sortedKeys = Object.keys(treeNode).sort((a, b) => {
+            const aIsFolder = !treeNode[a].isFile; const bIsFolder = !treeNode[b].isFile;
+            if (aIsFolder && !bIsFolder) return -1; if (!aIsFolder && bIsFolder) return 1; return a.localeCompare(b);
+        });
+        let html = '<ul>';
+        for (const key of sortedKeys) {
+            const node = treeNode[key];
+            const newPath = currentPath ? `${currentPath}/${key}` : key;
+            const isEnabled = node.enabled;
+            const removeButton = `<span class="remove-btn" title="Remove">&times;</span>`;
+            const textSpan = `<span class="file-tree-item-name">${key}</span>`;
+
+            if (node.isFile) {
+                const isUnsupported = node.unsupported;
+                const toggleButton = `<span class="toggle-btn ${isEnabled ? 'enabled' : ''} ${isUnsupported ? 'unsupported' : ''}" title="${isUnsupported ? 'Unsupported file type' : 'Enable/Disable'}"></span>`;
+                const icon = `<span class="file-tree-icon file-icon"></span>`;
+                const liClasses = `${isEnabled ? '' : 'disabled'} ${isUnsupported ? 'is-unsupported' : ''}`;
+                html += `<li class="${liClasses}" data-path="${node.fullPath}" data-type="file"><div class="file-tree-item">${toggleButton}${icon}${textSpan}${removeButton}</div></li>`;
+            } else {
+                const toggleButton = `<span class="toggle-btn ${isEnabled ? 'enabled' : ''}" title="Enable/Disable"></span>`;
+                const icon = `<span class="file-tree-icon folder-icon"></span>`;
+                html += `<li class="${isEnabled ? '' : 'disabled'}" data-path="${newPath}" data-type="folder"><div class="file-tree-item">${toggleButton}${icon}${textSpan}${removeButton}</div>${generateHtmlForTree(node.children, newPath)}</li>`;
+            }
+        }
+        html += '</ul>';
+        return html;
+    }
+
+    function renderFileTree(files) {
+        if (!files || files.length === 0) {
+            fileListContainer.innerHTML = '';
+            currentFiles = [];
+            return;
+        }
+        currentFiles = files;
+        const tree = buildTree(files);
+        const treeHtml = generateHtmlForTree(tree);
+
+        const rootUl = document.createElement('ul');
+        rootUl.className = 'file-tree';
+        rootUl.innerHTML = treeHtml.substring('<ul>'.length, treeHtml.length - '</ul>'.length);
+
+        fileListContainer.innerHTML = '';
+        fileListContainer.appendChild(rootUl);
+    }
+
+    function handleFileUpdates(result) {
+        renderFileTree(result.filesForRenderer || []);
+        syncFileListWithMain();
+    }
+
+    window.electronAPI.onInitialLoad(handleFileUpdates);
+    window.electronAPI.onFilesRead(handleFileUpdates);
+    window.electronAPI.onFilesReloaded(handleFileUpdates);
+
+    window.electronAPI.onFileListUpdated((files) => {
+        renderFileTree(files);
+    });
+
+</script>
+</body>
+</html>
