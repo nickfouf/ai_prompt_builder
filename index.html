@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>AI Prompt Builder</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; overflow: hidden; }
         h1 { margin-top: 0; color: #333; }
 
         /* --- Improved Top Bar Styles --- */
@@ -18,6 +18,19 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.07);
             margin-bottom: 16px;
         }
+
+        #template-name-container {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            border-left: 1px solid #e5e7eb;
+            padding-left: 12px;
+            margin-left: 4px;
+            height: 30px;
+        }
+
 
         button {
             padding: 8px 12px;
@@ -105,16 +118,17 @@
         }
 
         #file-list-container {
-            width: calc(100% - 22px);
-            height: calc(100vh - 400px);
+            width: 100%;
+            height: calc(100vh - 380px);
             font-family: monospace;
             font-size: 14px;
             padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
+            border-radius: 12px;
             background-color: #fff;
             overflow-y: auto;
             position: relative;
+            box-sizing: border-box;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
         }
         #file-list-container.drag-over {
             border-color: #007bff;
@@ -207,8 +221,6 @@
             padding: 0 5px;
             border-radius: 4px;
             line-height: 1;
-            margin-left: auto;
-            margin-right: 5px;
         }
         .remove-btn:hover { color: white; background-color: #f44336; }
         #copy-notification { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; margin-left: 15px; font-size: 14px; opacity: 0; display: none; transition: opacity 0.3s ease, display 0.3s ease; }
@@ -245,10 +257,12 @@
             font-family: monospace;
             font-size: 14px;
             padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
+            border-radius: 12px;
+            border: none;
+            outline: none;
             background-color: #fff;
             resize: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
         }
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -326,6 +340,9 @@
     <button id="back-btn" class="icon-btn" title="Back">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
     </button>
+    <div id="template-name-container">
+        <span id="template-name-display"></span>
+    </div>
     <button id="add" class="icon-btn" title="Add File(s)">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
     </button>
@@ -403,6 +420,7 @@
     const smartPasteDialog = document.getElementById('smart-paste-dialog');
     const smartPasteCloseBtn = document.getElementById('smart-paste-close-btn');
     const similarityList = document.getElementById('similarity-list');
+    const templateNameDisplay = document.getElementById('template-name-display');
 
 
     let copyTimeoutId;
@@ -412,9 +430,10 @@
     let debounceTimeout;
 
     function debounce(func, delay) {
+        let timeout;
         return function(...args) {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
                 func.apply(this, args);
             }, delay);
         };
@@ -435,6 +454,9 @@
     }
 
     const debouncedTokenCount = debounce(performTokenCount, 300);
+    const debouncedSavePrompt = debounce((prompt) => {
+        window.electronAPI.updatePrompt(prompt);
+    }, 500);
 
     function requestTokenCountUpdate() {
         tokenLoader.classList.remove('hidden');
@@ -542,7 +564,10 @@
         improveDialog.classList.remove('visible');
     });
 
-    promptInput.addEventListener('input', requestTokenCountUpdate);
+    promptInput.addEventListener('input', () => {
+        requestTokenCountUpdate();
+        debouncedSavePrompt(promptInput.value);
+    });
 
     fileListContainer.addEventListener('click', (event) => {
         const listItem = event.target.closest('li');
@@ -750,6 +775,12 @@
     }
 
     function handleFileUpdates(result) {
+        if (result.templateName) {
+            templateNameDisplay.textContent = result.templateName;
+        }
+        if (typeof result.prompt === 'string') {
+            promptInput.value = result.prompt;
+        }
         renderFileTree(result.filesForRenderer || []);
         syncFileListWithMain();
         requestTokenCountUpdate();

@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateFileList: (fileObjects) => {
         ipcRenderer.send('update-file-list', fileObjects);
     },
+    updatePrompt: (prompt) => ipcRenderer.send('session:update-prompt', prompt),
 
     // --- Event listeners ---
     onInitialLoad: (callback) => {

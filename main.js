@@ -182,12 +182,14 @@ async function processFiles(fileObjects) {
         }
     }
 
-    let contentMarkdown = '## Project Files:\n\n';
+    let contentMarkdown = '';
     enabledFileObjects.forEach((_file, index) => {
         const displayPath = enabledDisplayPaths[index].replace(/\\/g, '/');
         const { content, lang } = supportedFileData[index];
         contentMarkdown += `### \`${displayPath}\`\n\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
     });
+
+    if(contentMarkdown !== '' ) contentMarkdown = '## Project Files:\n\n' + contentMarkdown;
 
     // Generate display paths for ALL files (enabled or not) for the UI tree
     const allFilePaths = fileObjects.map(f => f.path);
@@ -241,6 +243,8 @@ function createWindow() {
     const win = new BrowserWindow({
         width: 900,
         height: 800,
+        minWidth: 840,
+        minHeight: 600,
         icon: path.join(__dirname, 'assets', 'icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -248,7 +252,7 @@ function createWindow() {
             nodeIntegration: false,
         },
     });
-    // win.setMenu(null);
+    win.setMenu(null);
     const iconPath = path.join(__dirname, 'assets', 'icon.ico');
     console.log(iconPath); // Check the absolute path
     win.loadFile('templates.html');
@@ -278,6 +282,7 @@ ipcMain.handle('templates:create', (event, name) => {
             name: name || 'Untitled Template',
             lastPath: null,
             lastFiles: [],
+            prompt: '',
         };
         const filePath = path.join(TEMPLATES_DIR, `${uid}.json`);
         fs.writeFileSync(filePath, JSON.stringify(newTemplate, null, 2), 'utf-8');
@@ -323,9 +328,11 @@ ipcMain.on('templates:load', async (event, uid) => {
         win.webContents.once('did-finish-load', async () => {
             if (currentSession.lastFiles.length > 0) {
                 const result = await processFiles(currentSession.lastFiles);
-                win.webContents.send('initial-load', result);
+                result.templateName = currentSession.name;
+                result.prompt = currentSession.prompt;
+                win.webContents.send('initial-load', result); // [1]
             } else {
-                win.webContents.send('initial-load', { filesForRenderer: [] });
+                win.webContents.send('initial-load', { filesForRenderer: [], templateName: currentSession.name, prompt: currentSession.prompt });
             }
         });
 
@@ -385,6 +392,7 @@ ipcMain.handle('read-files', async (_, files) => {
 
 ipcMain.handle('reload-and-copy', async (_, { files: fileObjects, prompt }) => {
     currentSession.lastFiles = fileObjects.map(({ path, enabled }) => ({ path, enabled }));
+    currentSession.prompt = prompt;
     saveCurrentSession();
     const result = await processFiles(currentSession.lastFiles);
 
@@ -467,6 +475,13 @@ ipcMain.on('update-file-list', (_, fileObjects) => {
         ({ path, enabled, unsupported }) => ({ path, enabled, unsupported })
     );
     saveCurrentSession();
+});
+
+ipcMain.on('session:update-prompt', (_, prompt) => {
+    if (currentSession) {
+        currentSession.prompt = prompt;
+        saveCurrentSession();
+    }
 });
 
 ipcMain.on('file:set-state', async (event, { path: toggledPath, type, enabled }) => {
