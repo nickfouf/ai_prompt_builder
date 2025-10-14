@@ -236,6 +236,7 @@ function createWindow() {
     const win = new BrowserWindow({
         width: 900,
         height: 800,
+        icon: path.join(__dirname, 'assets', 'icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -243,7 +244,8 @@ function createWindow() {
         },
     });
     win.setMenu(null);
-
+    const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+    console.log(iconPath); // Check the absolute path
     win.loadFile('templates.html');
 }
 

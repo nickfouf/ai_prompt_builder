@@ -39,8 +39,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
-        "repo": "YOUR_REPOSITORY_NAME"
+        "owner": "nickfouf",
+        "repo": "ai_prompt_builder"
       }
     ]
   },
