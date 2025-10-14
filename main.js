@@ -154,7 +154,7 @@ function generateMarkdownTree(files) {
     }
 
     const treeString = buildTreeString(tree);
-    return `\n\`\`\`\n${treeString}\`\`\`\n\n`;
+    return `\n## Project Structure:\n\`\`\`Markdown\n${treeString}\`\`\`\n\n`;
 }
 
 
@@ -182,7 +182,7 @@ async function processFiles(fileObjects) {
         }
     }
 
-    let contentMarkdown = '';
+    let contentMarkdown = '## Project Files:\n\n';
     enabledFileObjects.forEach((_file, index) => {
         const displayPath = enabledDisplayPaths[index].replace(/\\/g, '/');
         const { content, lang } = supportedFileData[index];
@@ -392,7 +392,7 @@ ipcMain.handle('reload-and-copy', async (_, { files: fileObjects, prompt }) => {
 
     let promptBlock = '';
     if (prompt && prompt.trim().length > 0) {
-        promptBlock = `\n\`\`\`\n${prompt}\n\`\`\`\n`;
+        promptBlock = `\n## User's prompt:\n\`\`\`Markdown\n${prompt}\n\`\`\`\n`;
     }
 
     const finalMarkdown = contentMarkdown + treeMarkdown + errorMarkdown + promptBlock;
@@ -448,7 +448,7 @@ ipcMain.handle('calculate-tokens', async (_, { files: fileObjects, prompt }) => 
 
     let promptBlock = '';
     if (prompt && prompt.trim().length > 0) {
-        promptBlock = `\n\`\`\`\n${prompt}\n\`\`\`\n`;
+        promptBlock = `\n## User's prompt:\n\`\`\`Markdown\n${prompt}\n\`\`\`\n`;
     }
     const finalMarkdown = contentMarkdown + treeMarkdown + errorMarkdown + promptBlock;
     if (!finalMarkdown) return 0;
