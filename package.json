@@ -49,6 +49,8 @@
     "electron-builder": "^26.0.12"
   },
   "dependencies": {
-    "axios": "^1.12.2"
+    "@lenml/tokenizer-gemini": "^3.7.2",
+    "axios": "^1.12.2",
+    "text-similarity-node": "^1.0.1"
   }
 }

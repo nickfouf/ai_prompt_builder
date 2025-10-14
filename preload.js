@@ -43,8 +43,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         }
     },
 
+    // Smart Paste functions
+    findSimilarFiles: () => ipcRenderer.invoke('smart-paste:find-similar'),
+    applySmartPaste: (filePath) => ipcRenderer.invoke('smart-paste:apply-update', { filePath }),
+
     // Function to improve the prompt text
     improvePrompt: (text) => ipcRenderer.invoke('improve-prompt', text),
+    calculateTokens: (payload) => ipcRenderer.invoke('calculate-tokens', payload),
     rereadFiles: async (files) => {
         if (!files || files.length === 0) return;
         const result = await ipcRenderer.invoke('read-files', []);

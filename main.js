@@ -3,6 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
+const { fromPreTrained } = require("@lenml/tokenizer-gemini");
+const textSimilarity = require('text-similarity-node');
+
+// --- Globals ---
+let tokenizer;
 
 // --- Templates Directory Setup ---
 const TEMPLATES_DIR = path.join(app.getPath("userData"), "templates");
@@ -243,7 +248,7 @@ function createWindow() {
             nodeIntegration: false,
         },
     });
-    win.setMenu(null);
+    // win.setMenu(null);
     const iconPath = path.join(__dirname, 'assets', 'icon.ico');
     console.log(iconPath); // Check the absolute path
     win.loadFile('templates.html');
@@ -435,6 +440,27 @@ Corrected Text in stringified format:`.trim();
     }
 });
 
+ipcMain.handle('calculate-tokens', async (_, { files: fileObjects, prompt }) => {
+    if (!tokenizer) return 0; // Guard against calls before tokenizer is ready
+
+    const result = await processFiles(fileObjects);
+    const { contentMarkdown, treeMarkdown, errorMarkdown } = result;
+
+    let promptBlock = '';
+    if (prompt && prompt.trim().length > 0) {
+        promptBlock = `\n\`\`\`\n${prompt}\n\`\`\`\n`;
+    }
+    const finalMarkdown = contentMarkdown + treeMarkdown + errorMarkdown + promptBlock;
+    if (!finalMarkdown) return 0;
+    try {
+        const encoded = tokenizer.encode(finalMarkdown);
+        return encoded.length;
+    } catch (error) {
+        console.error("Error counting tokens:", error);
+        return 0;
+    }
+});
+
 
 ipcMain.on('update-file-list', (_, fileObjects) => {
     currentSession.lastFiles = fileObjects.map(
@@ -484,7 +510,8 @@ ipcMain.handle('handle-dropped-paths', async (_, paths) => {
             } else {
                 allFilePaths.push(p);
             }
-        } catch (err) {
+        } catch (err)
+        {
             console.error(`Error processing dropped path ${p}:`, err);
         }
     }
@@ -498,5 +525,59 @@ ipcMain.handle('handle-dropped-paths', async (_, paths) => {
     return null;
 });
 
+ipcMain.handle('smart-paste:find-similar', async () => {
+    const clipboardText = clipboard.readText();
+    const enabledFiles = currentSession.lastFiles.filter(f => f.enabled);
 
-app.whenReady().then(createWindow);
+    if (!clipboardText || !enabledFiles || enabledFiles.length === 0) {
+        return [];
+    }
+
+    const enabledFilePaths = enabledFiles.map(f => f.path);
+    const displayPaths = generateDisplayPaths(enabledFilePaths);
+
+    const similarities = enabledFiles.map((file, index) => {
+        try {
+            const fileContent = fs.readFileSync(file.path, 'utf-8');
+            const similarity = textSimilarity.similarity.jaccard(clipboardText, fileContent);
+            return {
+                path: file.path,
+                displayPath: displayPaths[index],
+                similarity: (similarity * 100).toFixed(2) // Two-digit precision
+            };
+        } catch (err) {
+            console.error(`Could not read file for similarity check: ${file.path}`, err);
+            return {
+                path: file.path,
+                displayPath: displayPaths[index],
+                similarity: (0).toFixed(2)
+            };
+        }
+    });
+
+    similarities.sort((a, b) => b.similarity - a.similarity);
+
+    return similarities;
+});
+
+
+ipcMain.handle('smart-paste:apply-update', async (_, { filePath }) => {
+    const clipboardText = clipboard.readText();
+    if (!clipboardText || !filePath) {
+        return { success: false, error: 'No content on clipboard or no file path provided.' };
+    }
+
+    try {
+        fs.writeFileSync(filePath, clipboardText, 'utf-8');
+        const result = await processFiles(currentSession.lastFiles);
+        return { success: true, updatedFiles: result.filesForRenderer };
+    } catch (err) {
+        console.error(`Failed to write file for smart paste: ${filePath}`, err);
+        return { success: false, error: err.message };
+    }
+});
+
+app.whenReady().then(async () => {
+    tokenizer = await fromPreTrained();
+    createWindow();
+});
