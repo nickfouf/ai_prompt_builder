@@ -1,0 +1,56 @@
+{
+  "name": "ai-prompt-builder",
+  "version": "1.0.2",
+  "description": "AI Prompt Builder desktop app",
+  "author": "Your Name",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "build": {
+    "appId": "com.example.aipromptbuilder",
+    "productName": "AI Prompt Builder",
+    "files": [
+      "**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/.bin",
+      "!**/*.map",
+      "!**/*.md",
+      "!**/test",
+      "!**/tests"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "nickfouf",
+        "repo": "ai_prompt_builder"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "@lenml/tokenizer-gemini": "^3.7.2",
+    "axios": "^1.12.2",
+    "text-similarity-node": "^1.0.1"
+  }
+}

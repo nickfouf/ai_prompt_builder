@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Prompt Builder</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; overflow: hidden; }
+        h1 { margin-top: 0; color: #333; }
+
+        /* --- Improved Top Bar Styles --- */
+        #top-button-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            margin-bottom: 16px;
+        }
+
+        #template-name-container {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            border-left: 1px solid #e5e7eb;
+            padding-left: 12px;
+            margin-left: 4px;
+            height: 30px;
+        }
+
+
+        button {
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .icon-btn {
+            padding: 8px;
+            width: 38px;
+            height: 38px;
+        }
+
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
+        }
+
+        #back-btn { background-color: transparent; color: #4a5568; }
+        #back-btn:hover { background-color: #e2e8f0; }
+
+        #add, #add-folder { background-color: transparent; color: #4a5568; }
+        #add:hover, #add-folder:hover { background-color: #e2e8f0; }
+
+        #copy {
+            position: relative; /* Set as a positioning context */
+            background-color: #2563eb;
+            color: white;
+            border-color: #1d4ed8;
+            flex-direction: column;
+            padding: 4px 12px;
+            height: 100%;
+            gap: 4px;
+        }
+        #copy:hover { background-color: #1d4ed8; }
+
+        #smart-paste-btn {
+            background-color: #28a745;
+            color: white;
+            border-color: #218838;
+            flex-direction: column;
+            padding: 4px 12px;
+            height: 100%;
+            gap: 4px;
+        }
+        #smart-paste-btn:hover { background-color: #218838; }
+        #smart-paste-btn .shortcut {
+            font-size: 9px;
+            font-weight: normal;
+            color: #d1fae5;
+            line-height: 1;
+        }
+
+        #import-btn {
+            background-color: #17a2b8;
+            color: white;
+            border-color: #138496;
+            flex-direction: column;
+            padding: 4px 12px;
+            height: 100%;
+            gap: 4px;
+        }
+        #import-btn:hover { background-color: #138496; }
+        #import-btn .shortcut {
+            font-size: 9px;
+            font-weight: normal;
+            color: #e0f7fa;
+            line-height: 1;
+        }
+
+        #clear-btn { background-color: #dc2626; color: white; margin-left: auto; border-color: #b91c1c; }
+        #clear-btn:hover { background-color: #b91c1c; }
+
+        #improve-btn { background-color: #f59e0b; color: white; border-color: #d97706; }
+        #improve-btn:hover { background-color: #d97706; }
+        #improve-btn:disabled {
+            background-color: #fcd34d;
+            border-color: #f59e0b;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        #token-container {
+            display: flex;
+            align-items: center;
+            background-color: #f1f5f9;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #475569;
+            gap: 8px;
+        }
+
+        #file-list-container {
+            width: 100%;
+            height: calc(100vh - 380px);
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 12px;
+            background-color: #fff;
+            overflow-y: auto;
+            position: relative;
+            box-sizing: border-box;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+        }
+        #file-list-container.drag-over {
+            border-color: #007bff;
+            border-style: dashed;
+            background-color: #e7f3ff;
+        }
+        #file-list-container.drag-over::before {
+            content: 'Drop files and folders here';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #007bff;
+            font-size: 1.2em;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        .file-tree, .file-tree ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .file-tree ul {
+            padding-left: 24px;
+        }
+        .file-tree li {
+            padding: 2px 0;
+            position: relative;
+            white-space: nowrap;
+        }
+        .file-tree-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 0;
+        }
+        .toggle-btn {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .toggle-btn.enabled {
+            background-color: #2196F3;
+            border-color: #1e88e5;
+        }
+        .toggle-btn.enabled::after {
+            content: '✔';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            line-height: 1;
+        }
+        .disabled .file-tree-item-name {
+            color: #999;
+            text-decoration: line-through;
+        }
+        .toggle-btn.unsupported {
+            cursor: not-allowed;
+            background-color: #e0e0e0;
+            border-color: #ccc;
+        }
+        .toggle-btn.unsupported:hover {
+            background-color: #e0e0e0;
+        }
+        .toggle-btn.unsupported.enabled::after {
+            content: '';
+        }
+        .is-unsupported .file-tree-item-name {
+            text-decoration: line-through;
+            color: #999;
+        }
+        .file-tree-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+        .folder-icon::before { content: '📁'; }
+        .file-icon::before { content: '📄'; }
+        .remove-btn {
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            color: #aaa;
+            padding: 0 5px;
+            border-radius: 4px;
+            line-height: 1;
+        }
+        .remove-btn:hover { color: white; background-color: #f44336; }
+        #copy-notification { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; margin-left: 15px; font-size: 14px; opacity: 0; display: none; transition: opacity 0.3s ease, display 0.3s ease; }
+        #copy-notification.visible { opacity: 1; display: inline-block; }
+        #no-improvement-hint {
+            background-color: #6c757d;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-left: 10px;
+            font-size: 14px;
+            vertical-align: middle;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #no-improvement-hint.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #prompt-container {
+            margin-top: 15px;
+        }
+        #prompt-container label {
+            display: inline-block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+            vertical-align: middle;
+        }
+        #prompt-input {
+            width: calc(100% - 22px);
+            height: 150px;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 12px;
+            border: none;
+            outline: none;
+            background-color: #fff;
+            resize: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+        }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1; visibility: visible;
+        }
+        .modal-content {
+            background: white; padding: 25px 30px; border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%; max-width: 500px;
+        }
+        .modal-content p { margin: 0 0 20px 0; font-size: 18px; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 15px; }
+        .modal-buttons button {
+            padding: 10px 25px; font-size: 16px; border-radius: 8px;
+            border: none; cursor: pointer; transition: background-color 0.2s;
+        }
+        #approve-btn { background-color: #28a745; color: white; }
+        #approve-btn:hover { background-color: #218838; }
+        #reject-btn { background-color: #6c757d; color: white; }
+        #reject-btn:hover { background-color: #5a6268; }
+        #clear-approve-btn { background-color: #dc3545; color: white; }
+        #clear-approve-btn:hover { background-color: #c82333; }
+        #clear-reject-btn { background-color: #6c757d; color: white; }
+        #clear-reject-btn:hover { background-color: #5a6268; }
+        #prompt-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        #prompt-header label, #prompt-header button, #prompt-header #no-improvement-hint {
+            margin: 0;
+        }
+        #copy .shortcut {
+            font-size: 9px;
+            font-weight: normal;
+            color: #dbeafe;
+            line-height: 1;
+        }
+        #token-loader {
+            width: 20px;
+            height: 20px;
+        }
+        #token-value {
+            font-weight: bold;
+            color: #1e293b;
+        }
+        .hidden {
+            display: none;
+        }
+        .smart-paste-content { max-width: 700px; position: relative; text-align: left; }
+        #smart-paste-close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #aaa; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 5px; }
+        #smart-paste-close-btn:hover { color: #dc3545; }
+        .smart-paste-content h2 { margin-top: 0; margin-bottom: 20px; }
+        #similarity-list { list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto; }
+        .similarity-item { display: flex; align-items: center; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
+        .similarity-item:last-child { margin-bottom: 0; }
+        .similarity-item-info { flex-grow: 1; }
+        .similarity-item-name { font-weight: bold; font-size: 16px; color: #1e293b; }
+        .similarity-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
+        .similarity-item-score { font-size: 16px; font-weight: 500; color: #475569; margin-right: 15px; min-width: 70px; text-align: right; }
+        .similarity-item-apply-btn { padding: 8px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; border: none; cursor: pointer; background-color: #28a745; color: white; transition: background-color 0.2s; }
+        .similarity-item-apply-btn:hover { background-color: #218838; }
+
+        /* --- Import Modal Styles --- */
+        #import-close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #aaa; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 5px; }
+        #import-close-btn:hover { color: #dc3545; }
+        #import-list { list-style: none; padding: 0; margin: 20px 0; max-height: 50vh; overflow-y: auto; }
+        .import-item { display: flex; align-items: center; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
+        .import-item.not-found .import-item-name { color: #dc3545; }
+        .import-item-info { flex-grow: 1; }
+        .import-item-name { font-weight: bold; font-size: 16px; }
+        .import-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
+        .import-item.not-found .import-item-path { color: #e57373; }
+        .import-item-score { font-size: 14px; font-weight: 500; color: #475569; margin-left: 15px; min-width: 120px; text-align: right; }
+        #import-cancel-btn { background-color: #6c757d; color: white; }
+        #import-cancel-btn:hover { background-color: #5a6268; }
+        #import-apply-btn { background-color: #28a745; color: white; }
+        #import-apply-btn:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+<div id="top-button-container">
+    <button id="back-btn" class="icon-btn" title="Back">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+    </button>
+    <div id="template-name-container">
+        <span id="template-name-display"></span>
+    </div>
+    <button id="add" class="icon-btn" title="Add File(s)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+    </button>
+    <button id="add-folder" class="icon-btn" title="Add Folder">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path><line x1="12" y1="10" x2="12" y2="16"></line><line x1="9" y1="13" x2="15" y2="13"></line></svg>
+    </button>
+    <button id="copy">Copy Markdown<span class="shortcut">Ctrl+Shift+C</span></button>
+    <button id="smart-paste-btn">Smart Paste<span class="shortcut">Ctrl+Shift+V</span></button>
+    <button id="import-btn">Import<span class="shortcut">Ctrl+Shift+I</span></button>
+    <div id="token-container">
+        <span>Tokens:</span>
+        <span id="token-value">-</span>
+        <img src="assets/loading.gif" id="token-loader" class="hidden">
+    </div>
+    <span id="copy-notification">Copied!</span>
+    <button id="clear-btn">Clear All</button>
+</div>
+<br/>
+<div id="file-list-container"></div>
+<div id="prompt-container">
+    <div id="prompt-header">
+        <label>Prompt</label>
+        <button id="improve-btn">Improve</button>
+        <span id="no-improvement-hint">No improvement suggestions...</span>
+    </div>
+    <textarea id="prompt-input" placeholder="Enter your prompt for the AI here..."></textarea>
+</div>
+
+<!-- Modals -->
+<div id="improve-dialog" class="modal-overlay">
+    <div class="modal-content">
+        <p>We suggest the following improvement:</p>
+        <div id="suggestion-display" style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 20px; white-space: pre-wrap; font-family: monospace;"></div>
+        <div class="modal-buttons">
+            <button id="reject-btn">Reject</button>
+            <button id="approve-btn">Approve</button>
+        </div>
+    </div>
+</div>
+
+<div id="clear-confirm-dialog" class="modal-overlay">
+    <div class="modal-content">
+        <p>Are you sure you want to clear all files and folders?</p>
+        <div class="modal-buttons">
+            <button id="clear-reject-btn">No</button>
+            <button id="clear-approve-btn">Yes</button>
+        </div>
+    </div>
+</div>
+
+<div id="smart-paste-dialog" class="modal-overlay">
+    <div class="modal-content smart-paste-content">
+        <button id="smart-paste-close-btn">&times;</button>
+        <h2>Select a file to update</h2>
+        <ul id="similarity-list"></ul>
+    </div>
+</div>
+
+<div id="import-dialog" class="modal-overlay">
+    <div class="modal-content smart-paste-content">
+        <button id="import-close-btn">&times;</button>
+        <h2>Importing from Clipboard</h2>
+        <p>The following files will be updated. Files in <span style="color: #dc3545;">red</span> were not found in the current project.</p>
+        <ul id="import-list"></ul>
+        <div class="modal-buttons">
+            <button id="import-cancel-btn">Cancel</button>
+            <button id="import-apply-btn">Apply Changes</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    const fileListContainer = document.getElementById('file-list-container');
+    const copyNotification = document.getElementById('copy-notification');
+    const promptInput = document.getElementById('prompt-input');
+    const improveBtn = document.getElementById('improve-btn');
+    const improveDialog = document.getElementById('improve-dialog');
+    const suggestionDisplay = document.getElementById('suggestion-display');
+    const approveBtn = document.getElementById('approve-btn');
+    const rejectBtn = document.getElementById('reject-btn');
+    const noImprovementHint = document.getElementById('no-improvement-hint');
+    const clearConfirmDialog = document.getElementById('clear-confirm-dialog');
+    const clearApproveBtn = document.getElementById('clear-approve-btn');
+    const clearRejectBtn = document.getElementById('clear-reject-btn');
+    const tokenValue = document.getElementById('token-value');
+    const tokenLoader = document.getElementById('token-loader');
+    const smartPasteBtn = document.getElementById('smart-paste-btn');
+    const smartPasteDialog = document.getElementById('smart-paste-dialog');
+    const smartPasteCloseBtn = document.getElementById('smart-paste-close-btn');
+    const similarityList = document.getElementById('similarity-list');
+    const templateNameDisplay = document.getElementById('template-name-display');
+    const importBtn = document.getElementById('import-btn');
+    const importDialog = document.getElementById('import-dialog');
+    const importCloseBtn = document.getElementById('import-close-btn');
+    const importList = document.getElementById('import-list');
+    const importCancelBtn = document.getElementById('import-cancel-btn');
+    const importApplyBtn = document.getElementById('import-apply-btn');
+
+
+    let copyTimeoutId;
+    let noImprovementTimeout;
+    let currentFiles = [];
+    let dragCounter = 0;
+    let debounceTimeout;
+
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                func.apply(this, args);
+            }, delay);
+        };
+    }
+
+    async function performTokenCount() {
+        try {
+            const promptText = promptInput.value;
+            const count = await window.electronAPI.calculateTokens({ files: currentFiles, prompt: promptText });
+            tokenValue.textContent = count.toLocaleString();
+        } catch (error) {
+            tokenValue.textContent = 'Error';
+            console.error('Failed to calculate tokens:', error);
+        } finally {
+            tokenLoader.classList.add('hidden');
+            tokenValue.classList.remove('hidden');
+        }
+    }
+
+    const debouncedTokenCount = debounce(performTokenCount, 300);
+    const debouncedSavePrompt = debounce((prompt) => {
+        window.electronAPI.updatePrompt(prompt);
+    }, 500);
+
+    function requestTokenCountUpdate() {
+        tokenLoader.classList.remove('hidden');
+        tokenValue.classList.add('hidden');
+        debouncedTokenCount();
+    }
+
+
+    function syncFileListWithMain() {
+        window.electronAPI.updateFileList(currentFiles);
+    }
+
+    // --- Button Event Listeners ---
+    document.getElementById('back-btn').addEventListener('click', () => { window.electronAPI.showTemplates(); });
+    document.getElementById('add').addEventListener('click', () => { window.electronAPI.pickFiles(); });
+    document.getElementById('add-folder').addEventListener('click', () => { window.electronAPI.pickFolder(); });
+    document.getElementById('copy').addEventListener('click', async () => {
+        if (currentFiles.length === 0) return;
+        const promptText = document.getElementById('prompt-input').value;
+        await window.electronAPI.reloadAndCopy({ files: currentFiles, prompt: promptText });
+        clearTimeout(copyTimeoutId);
+        copyNotification.textContent = 'Copied!';
+        copyNotification.classList.add('visible');
+        copyTimeoutId = setTimeout(() => { copyNotification.classList.remove('visible'); }, 2000);
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        if (currentFiles.length > 0) {
+            clearConfirmDialog.classList.add('visible');
+        }
+    });
+
+    clearApproveBtn.addEventListener('click', () => {
+        fileListContainer.innerHTML = '';
+        currentFiles = [];
+        syncFileListWithMain();
+        clearConfirmDialog.classList.remove('visible');
+        requestTokenCountUpdate();
+    });
+
+    clearRejectBtn.addEventListener('click', () => {
+        clearConfirmDialog.classList.remove('visible');
+    });
+
+    smartPasteBtn.addEventListener('click', async () => {
+        const enabledFiles = currentFiles.filter(f => f.enabled);
+        if (enabledFiles.length === 0) {
+            copyNotification.textContent = 'No enabled files to compare!';
+            copyNotification.classList.add('visible');
+            copyTimeoutId = setTimeout(() => { copyNotification.classList.remove('visible'); }, 2500);
+            return;
+        }
+        similarityList.innerHTML = '<p>Analyzing clipboard content...</p>';
+        smartPasteDialog.classList.add('visible');
+        try {
+            const files = await window.electronAPI.findSimilarFiles();
+            renderSimilarityList(files);
+        } catch (error) {
+            console.error('Failed to find similar files:', error);
+            similarityList.innerHTML = '<p>Error analyzing files. See console for details.</p>';
+        }
+    });
+
+    smartPasteCloseBtn.addEventListener('click', () => {
+        smartPasteDialog.classList.remove('visible');
+    });
+
+    importBtn.addEventListener('click', async () => {
+        importList.innerHTML = '<p>Analyzing clipboard content for files...</p>';
+        importDialog.classList.add('visible');
+        importApplyBtn.disabled = true;
+        try {
+            const analysis = await window.electronAPI.parseClipboardForImport();
+            renderImportList(analysis);
+        } catch (error) {
+            console.error('Failed to parse clipboard for import:', error);
+            importList.innerHTML = '<p>Error analyzing clipboard. See console for details.</p>';
+        }
+    });
+
+    importCloseBtn.addEventListener('click', () => {
+        importDialog.classList.remove('visible');
+    });
+
+    importCancelBtn.addEventListener('click', () => {
+        importDialog.classList.remove('visible');
+    });
+
+    importApplyBtn.addEventListener('click', async () => {
+        const foundFiles = Array.from(importList.querySelectorAll('.import-item:not(.not-found)'))
+            .map(item => item.dataset.path);
+
+        if (foundFiles.length === 0) {
+            importDialog.classList.remove('visible');
+            return;
+        }
+
+        importApplyBtn.textContent = 'Applying...';
+        importApplyBtn.disabled = true;
+
+        try {
+            const result = await window.electronAPI.applyImport(foundFiles);
+            if (result.success) {
+                renderFileTree(result.updatedFiles);
+                requestTokenCountUpdate();
+                importDialog.classList.remove('visible');
+                copyNotification.textContent = 'Imported!';
+                copyNotification.classList.add('visible');
+                copyTimeoutId = setTimeout(() => {
+                    copyNotification.classList.remove('visible');
+                }, 2000);
+            } else {
+                console.error('Failed to apply import:', result.error);
+                alert('Failed to apply import: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error applying import:', error);
+        } finally {
+            importApplyBtn.textContent = 'Apply Changes';
+            importApplyBtn.disabled = false;
+        }
+    });
+
+    improveBtn.addEventListener('click', async () => {
+        const originalText = promptInput.value;
+        if (!originalText.trim()) {
+            return;
+        }
+        try {
+            improveBtn.textContent = 'Improving...';
+            improveBtn.disabled = true;
+            const improvedText = await window.electronAPI.improvePrompt(originalText);
+            if (improvedText && improvedText !== originalText) {
+                suggestionDisplay.textContent = improvedText;
+                improveDialog.classList.add('visible');
+            } else {
+                clearTimeout(noImprovementTimeout);
+                noImprovementHint.classList.add('visible');
+                noImprovementTimeout = setTimeout(() => {
+                    noImprovementHint.classList.remove('visible');
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Improvement request failed:', error);
+        } finally {
+            improveBtn.textContent = 'Improve';
+            improveBtn.disabled = false;
+        }
+    });
+
+    approveBtn.addEventListener('click', () => {
+        const improvedText = suggestionDisplay.textContent;
+        promptInput.focus();
+        promptInput.select();
+        document.execCommand('insertText', false, improvedText);
+        improveDialog.classList.remove('visible');
+        requestTokenCountUpdate();
+    });
+
+    rejectBtn.addEventListener('click', () => {
+        improveDialog.classList.remove('visible');
+    });
+
+    promptInput.addEventListener('input', () => {
+        requestTokenCountUpdate();
+        debouncedSavePrompt(promptInput.value);
+    });
+
+    fileListContainer.addEventListener('click', (event) => {
+        const listItem = event.target.closest('li');
+        if (!listItem) return;
+
+        const path = listItem.dataset.path;
+        const type = listItem.dataset.type;
+
+        if (event.target.matches('.remove-btn')) {
+            if (type === 'file') {
+                currentFiles = currentFiles.filter(f => f.path !== path);
+            } else if (type === 'folder') {
+                currentFiles = currentFiles.filter(f => {
+                    const normalizedDisplayPath = f.displayPath.replace(/\\/g, '/');
+                    return !normalizedDisplayPath.startsWith(path + '/') && normalizedDisplayPath !== path;
+                });
+            }
+            syncFileListWithMain();
+            renderFileTree(currentFiles);
+            requestTokenCountUpdate();
+        }
+
+        if (event.target.matches('.toggle-btn')) {
+            if (listItem.classList.contains('is-unsupported')) {
+                return;
+            }
+            const isEnabled = !listItem.classList.contains('disabled');
+            window.electronAPI.setFileState({ path, type, enabled: !isEnabled });
+        }
+    });
+
+    // --- Drag and Drop Event Listeners ---
+    fileListContainer.addEventListener('dragenter', (event) => {
+        event.preventDefault();
+        dragCounter++;
+        fileListContainer.classList.add('drag-over');
+    });
+
+    fileListContainer.addEventListener('dragover', (event) => {
+        event.preventDefault();
+    });
+
+    fileListContainer.addEventListener('dragleave', (event) => {
+        event.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+            fileListContainer.classList.remove('drag-over');
+        }
+    });
+
+
+    fileListContainer.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dragCounter = 0;
+        fileListContainer.classList.remove('drag-over');
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            // Convert FileList to Array and pass to preload
+            window.electronAPI.handleDrop(Array.from(files));
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.shiftKey && (event.key === 'C' || event.key === 'c')) {
+            event.preventDefault();
+            document.getElementById('copy').click();
+        }
+        if (event.ctrlKey && event.shiftKey && (event.key === 'V' || event.key === 'v')) {
+            event.preventDefault();
+            document.getElementById('smart-paste-btn').click();
+        }
+        if (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'i')) {
+            event.preventDefault();
+            document.getElementById('import-btn').click();
+        }
+    });
+
+
+    // --- Build and Render Tree Functions ---
+    function buildTree(files) {
+        const tree = {};
+        for (const file of files) {
+            const parts = file.displayPath.split(/[\\/]/);
+            let currentLevel = tree;
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                if (i === parts.length - 1) {
+                    currentLevel[part] = {
+                        isFile: true,
+                        enabled: file.enabled,
+                        fullPath: file.path,
+                        unsupported: file.unsupported
+                    };
+                } else {
+                    currentLevel[part] = currentLevel[part] || { isFile: false, children: {} };
+                    currentLevel = currentLevel[part].children;
+                }
+            }
+        }
+        function checkFolderStatus(node) {
+            let anyChildEnabled = false;
+            Object.values(node.children || {}).forEach(child => {
+                const childIsEnabled = child.isFile ? child.enabled : checkFolderStatus(child);
+                if (childIsEnabled) anyChildEnabled = true;
+            });
+            node.enabled = anyChildEnabled;
+            return anyChildEnabled;
+        }
+        Object.values(tree).forEach(rootNode => {
+            if (!rootNode.isFile) checkFolderStatus(rootNode);
+        });
+        return tree;
+    }
+
+    function generateHtmlForTree(treeNode, currentPath = '') {
+        const sortedKeys = Object.keys(treeNode).sort((a, b) => {
+            const aIsFolder = !treeNode[a].isFile; const bIsFolder = !treeNode[b].isFile;
+            if (aIsFolder && !bIsFolder) return -1; if (!aIsFolder && bIsFolder) return 1; return a.localeCompare(b);
+        });
+        let html = '<ul>';
+        for (const key of sortedKeys) {
+            const node = treeNode[key];
+            const newPath = currentPath ? `${currentPath}/${key}` : key;
+            const isEnabled = node.enabled;
+            const removeButton = `<span class="remove-btn" title="Remove">&times;</span>`;
+            const textSpan = `<span class="file-tree-item-name">${key}</span>`;
+
+            if (node.isFile) {
+                const isUnsupported = node.unsupported;
+                const toggleButton = `<span class="toggle-btn ${isEnabled ? 'enabled' : ''} ${isUnsupported ? 'unsupported' : ''}" title="${isUnsupported ? 'Unsupported file type' : 'Enable/Disable'}"></span>`;
+                const icon = `<span class="file-tree-icon file-icon"></span>`;
+                const liClasses = `${isEnabled ? '' : 'disabled'} ${isUnsupported ? 'is-unsupported' : ''}`;
+                html += `<li class="${liClasses}" data-path="${node.fullPath}" data-type="file"><div class="file-tree-item">${toggleButton}${icon}${textSpan}${removeButton}</div></li>`;
+            } else {
+                const toggleButton = `<span class="toggle-btn ${isEnabled ? 'enabled' : ''}" title="Enable/Disable"></span>`;
+                const icon = `<span class="file-tree-icon folder-icon"></span>`;
+                html += `<li class="${isEnabled ? '' : 'disabled'}" data-path="${newPath}" data-type="folder"><div class="file-tree-item">${toggleButton}${icon}${textSpan}${removeButton}</div>${generateHtmlForTree(node.children, newPath)}</li>`;
+            }
+        }
+        html += '</ul>';
+        return html;
+    }
+
+    function renderFileTree(files) {
+        if (!files || files.length === 0) {
+            fileListContainer.innerHTML = '';
+            currentFiles = [];
+            return;
+        }
+        currentFiles = files;
+        const tree = buildTree(files);
+        const treeHtml = generateHtmlForTree(tree);
+
+        const rootUl = document.createElement('ul');
+        rootUl.className = 'file-tree';
+        rootUl.innerHTML = treeHtml.substring('<ul>'.length, treeHtml.length - '</ul>'.length);
+
+        fileListContainer.innerHTML = '';
+        fileListContainer.appendChild(rootUl);
+    }
+
+    function renderSimilarityList(files) {
+        if (!files || files.length === 0) {
+            similarityList.innerHTML = '<p style="text-align: center; color: #6c757d;">No enabled files to compare against.</p>';
+            return;
+        }
+        similarityList.innerHTML = '';
+        files.forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'similarity-item';
+            const fileBaseName = file.displayPath.split(/[\\/]/).pop();
+            const fileDir = file.displayPath.includes('/') ? file.displayPath.substring(0, file.displayPath.lastIndexOf('/')) :
+                file.displayPath.includes('\\') ? file.displayPath.substring(0, file.displayPath.lastIndexOf('\\')) : '.';
+            li.innerHTML = `
+                <div class="similarity-item-info">
+                    <div class="similarity-item-name">${fileBaseName}</div>
+                    <div class="similarity-item-path">${fileDir}</div>
+                </div>
+                <div class="similarity-item-score">${file.similarity}%</div>
+                <button class="similarity-item-apply-btn" data-path="${file.path}">Apply</button>
+            `;
+            li.querySelector('.similarity-item-apply-btn').addEventListener('click', async (event) => {
+                const button = event.currentTarget;
+                const filePath = button.dataset.path;
+                button.textContent = 'Applying...';
+                button.disabled = true;
+                const result = await window.electronAPI.applySmartPaste(filePath);
+                if (result.success) {
+                    renderFileTree(result.updatedFiles);
+                    requestTokenCountUpdate();
+                    smartPasteDialog.classList.remove('visible');
+                    clearTimeout(copyTimeoutId);
+                    copyNotification.textContent = 'Pasted!';
+                    copyNotification.classList.add('visible');
+                    copyTimeoutId = setTimeout(() => {
+                        copyNotification.classList.remove('visible');
+                    }, 2000);
+                } else {
+                    console.error('Failed to apply smart paste:', result.error);
+                    button.textContent = 'Error!';
+                    setTimeout(() => {
+                        button.textContent = 'Apply';
+                        button.disabled = false;
+                    }, 2000);
+                }
+            });
+            similarityList.appendChild(li);
+        });
+    }
+
+    function renderImportList(analysis) {
+        if (!analysis || analysis.length === 0) {
+            importList.innerHTML = '<p style="text-align: center; color: #6c757d;">No valid file formats found in clipboard.</p>';
+            importApplyBtn.style.display = 'none';
+            return;
+        }
+
+        const foundFilesCount = analysis.filter(f => f.found).length;
+        importApplyBtn.style.display = foundFilesCount > 0 ? 'inline-block' : 'none';
+        importApplyBtn.disabled = foundFilesCount === 0;
+
+        importList.innerHTML = '';
+        analysis.forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'import-item';
+            const fileBaseName = file.path.split(/[\\/]/).pop();
+            const fileDir = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '.';
+
+            if (file.found) {
+                li.dataset.path = file.path; // The full path of the project file
+                li.innerHTML = `
+                    <div class="import-item-info">
+                        <div class="import-item-name">${file.displayPath.split(/[\\/]/).pop()}</div>
+                        <div class="import-item-path">${file.displayPath.substring(0, file.displayPath.lastIndexOf('/'))}</div>
+                    </div>
+                    <div class="import-item-score">~${file.difference.toFixed(2)}% different</div>
+                `;
+            } else {
+                li.classList.add('not-found');
+                li.innerHTML = `
+                    <div class="import-item-info">
+                        <div class="import-item-name">${fileBaseName}</div>
+                        <div class="import-item-path">${fileDir}</div>
+                    </div>
+                    <div class="import-item-score">Not in project</div>
+                `;
+            }
+            importList.appendChild(li);
+        });
+    }
+
+    function handleFileUpdates(result) {
+        if (result.templateName) {
+            templateNameDisplay.textContent = result.templateName;
+        }
+        if (typeof result.prompt === 'string') {
+            promptInput.value = result.prompt;
+        }
+        renderFileTree(result.filesForRenderer || []);
+        syncFileListWithMain();
+        requestTokenCountUpdate();
+    }
+
+    window.electronAPI.onInitialLoad(handleFileUpdates);
+    window.electronAPI.onFilesRead(handleFileUpdates);
+    window.electronAPI.onFilesReloaded(handleFileUpdates);
+
+    window.electronAPI.onFileListUpdated((files) => {
+        renderFileTree(files);
+        requestTokenCountUpdate();
+    });
+
+</script>
+</body>
+</html>
