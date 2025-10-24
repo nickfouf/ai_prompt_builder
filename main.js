@@ -50,6 +50,7 @@ const getAllFiles = (dir, files = []) => {
 
 function findLowestCommonAncestor(paths) {
     if (!paths || paths.length === 0) return '';
+<<<<<<< HEAD
     if (paths.length === 1) return path.dirname(paths[0]);
     const dirPaths = paths.map(p => path.dirname(p));
     const splitPaths = dirPaths.map(p => p.split(path.sep));
@@ -60,6 +61,22 @@ function findLowestCommonAncestor(paths) {
             commonPath.push(currentPart);
         } else {
             break;
+=======
+    if (paths.length === 1) return path.dirname(paths[0]); // Corrected: Expects a single path string
+    const dirPaths = paths.map(p => path.dirname(p));
+    const splitPaths = dirPaths.map(p => p.split(path.sep));
+    let commonPath = [];
+    // Corrected logic to find common ancestor
+    if (splitPaths.length > 0) {
+        const firstPathParts = splitPaths[0];
+        for (let i = 0; i < firstPathParts.length; i++) {
+            const part = firstPathParts[i];
+            if (splitPaths.every(p => p.length > i && p[i] === part)) {
+                commonPath.push(part);
+            } else {
+                break;
+            }
+>>>>>>> c242805 (Import Markdown Feature)
         }
     }
     return commonPath.join(path.sep);
@@ -68,7 +85,13 @@ function findLowestCommonAncestor(paths) {
 function generateDisplayPaths(files) {
     if (!files || files.length === 0) return [];
     if (files.length === 1) {
+<<<<<<< HEAD
         return [path.join(path.basename(path.dirname(files[0])), path.basename(files[0]))];
+=======
+        // Corrected: Handle single file case properly
+        const filePath = files[0];
+        return [path.join(path.basename(path.dirname(filePath)), path.basename(filePath))];
+>>>>>>> c242805 (Import Markdown Feature)
     }
     const commonAncestor = findLowestCommonAncestor(files);
     const relativePaths = files.map(f => path.relative(commonAncestor, f));
@@ -101,7 +124,12 @@ function generateDisplayPaths(files) {
         if (firstBranchIndex !== -1) {
             return parts.slice(firstBranchIndex).join(path.sep);
         } else {
+<<<<<<< HEAD
             return parts.slice(-2).join(path.sep);
+=======
+            // Fallback for paths that don't branch off significantly
+            return parts.length > 1 ? parts.slice(-2).join(path.sep) : relPath;
+>>>>>>> c242805 (Import Markdown Feature)
         }
     });
     const hasRootFile = collapsedPaths.some(p => !p.includes(path.sep));
@@ -241,9 +269,15 @@ function saveCurrentSession() {
 
 function createWindow() {
     const win = new BrowserWindow({
+<<<<<<< HEAD
         width: 900,
         height: 800,
         minWidth: 840,
+=======
+        width: 940,
+        height: 800,
+        minWidth: 940,
+>>>>>>> c242805 (Import Markdown Feature)
         minHeight: 600,
         icon: path.join(__dirname, 'assets', 'icon.ico'),
         webPreferences: {
@@ -330,7 +364,11 @@ ipcMain.on('templates:load', async (event, uid) => {
                 const result = await processFiles(currentSession.lastFiles);
                 result.templateName = currentSession.name;
                 result.prompt = currentSession.prompt;
+<<<<<<< HEAD
                 win.webContents.send('initial-load', result); // [1]
+=======
+                win.webContents.send('initial-load', result); //
+>>>>>>> c242805 (Import Markdown Feature)
             } else {
                 win.webContents.send('initial-load', { filesForRenderer: [], templateName: currentSession.name, prompt: currentSession.prompt });
             }
@@ -355,6 +393,10 @@ ipcMain.handle('open-file-dialog', async () => {
         defaultPath: currentSession.lastPath || undefined,
     });
     if (!result.canceled && result.filePaths.length > 0) {
+<<<<<<< HEAD
+=======
+        // FIX: Use the directory of the first selected file.
+>>>>>>> c242805 (Import Markdown Feature)
         currentSession.lastPath = path.dirname(result.filePaths[0]);
     }
     return result.filePaths;
@@ -370,6 +412,10 @@ ipcMain.handle('open-folder-dialog', async () => {
         return [];
     }
 
+<<<<<<< HEAD
+=======
+    // FIX: Get the single directory path from the result array.
+>>>>>>> c242805 (Import Markdown Feature)
     const dirPath = result.filePaths[0];
     currentSession.lastPath = dirPath;
 
@@ -592,6 +638,122 @@ ipcMain.handle('smart-paste:apply-update', async (_, { filePath }) => {
     }
 });
 
+<<<<<<< HEAD
+=======
+// --- Import from Clipboard ---
+
+function parseFilesFromClipboard(clipboardText) {
+    const files = [];
+    // CORRECTED REGEX: More flexible with whitespace and optional elements.
+    const regex = /### `([^`]+)`\s*```(?:[^\n]*)?\n([\s\S]*?)\n?```/g;
+    let match;
+    while ((match = regex.exec(clipboardText)) !== null) {
+        files.push({
+            path: match[1].trim().replace(/\\/g, '/'), // Path is in group 1
+            content: match[2],                       // Content is in group 2
+        });
+    }
+    return files;
+}
+
+function findBestMatch(clipboardPath, projectFiles, projectDisplayPaths) {
+    let bestMatchIndex = -1;
+
+    // 1. Check for an exact match
+    const exactMatchIndex = projectDisplayPaths.findIndex(p => p === clipboardPath);
+    if (exactMatchIndex > -1) {
+        bestMatchIndex = exactMatchIndex;
+    } else {
+        // 2. If no exact match, find the shortest display path that has the clipboard path as a suffix
+        let shortestMatchPathLength = Infinity;
+        projectDisplayPaths.forEach((displayPath, index) => {
+            if (displayPath.endsWith('/' + clipboardPath) || displayPath === clipboardPath) {
+                if (displayPath.length < shortestMatchPathLength) {
+                    shortestMatchPathLength = displayPath.length;
+                    bestMatchIndex = index;
+                }
+            }
+        });
+    }
+
+    if (bestMatchIndex !== -1) {
+        return {
+            file: projectFiles[bestMatchIndex],
+            displayPath: projectDisplayPaths[bestMatchIndex],
+            index: bestMatchIndex
+        };
+    }
+
+    return null; // No match found
+}
+
+
+ipcMain.handle('import:parse-clipboard', async () => {
+    const clipboardText = clipboard.readText();
+    if (!clipboardText) return [];
+
+    const clipboardFiles = parseFilesFromClipboard(clipboardText);
+    if (clipboardFiles.length === 0) return [];
+
+    const projectFiles = currentSession.lastFiles;
+    const projectFilePaths = projectFiles.map(f => f.path);
+    const projectDisplayPaths = generateDisplayPaths(projectFilePaths).map(p => p.replace(/\\/g, '/'));
+
+    const analysis = clipboardFiles.map(clipboardFile => {
+        const match = findBestMatch(clipboardFile.path, projectFiles, projectDisplayPaths);
+
+        if (match) {
+            try {
+                const projectFileContent = fs.readFileSync(match.file.path, 'utf-8');
+                const similarity = textSimilarity.similarity.jaccard(clipboardFile.content, projectFileContent);
+                const difference = (1 - similarity) * 100;
+                return {
+                    found: true,
+                    path: match.file.path,
+                    displayPath: match.displayPath,
+                    difference: difference,
+                };
+            } catch (err) {
+                console.error(`Could not read file for import comparison: ${match.file.path}`, err);
+                return { found: false, path: clipboardFile.path };
+            }
+        } else {
+            return { found: false, path: clipboardFile.path };
+        }
+    });
+
+    return analysis;
+});
+
+
+ipcMain.handle('import:apply-changes', async (_, { filePathsToUpdate }) => {
+    const clipboardText = clipboard.readText();
+    if (!clipboardText || !filePathsToUpdate || filePathsToUpdate.length === 0) {
+        return { success: false, error: 'No clipboard content or no files selected for update.' };
+    }
+
+    const clipboardFiles = parseFilesFromClipboard(clipboardText);
+    const projectFiles = currentSession.lastFiles;
+    const projectFilePaths = projectFiles.map(f => f.path);
+    const projectDisplayPaths = generateDisplayPaths(projectFilePaths).map(p => p.replace(/\\/g, '/'));
+
+    try {
+        for (const clipboardFile of clipboardFiles) {
+            const match = findBestMatch(clipboardFile.path, projectFiles, projectDisplayPaths);
+            if (match && filePathsToUpdate.includes(match.file.path)) {
+                fs.writeFileSync(match.file.path, clipboardFile.content, 'utf-8');
+            }
+        }
+        const result = await processFiles(currentSession.lastFiles);
+        return { success: true, updatedFiles: result.filesForRenderer };
+    } catch (err) {
+        console.error(`Failed to write file during import:`, err);
+        return { success: false, error: err.message };
+    }
+});
+
+
+>>>>>>> c242805 (Import Markdown Feature)
 app.whenReady().then(async () => {
     tokenizer = await fromPreTrained();
     createWindow();

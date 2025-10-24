@@ -47,6 +47,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     findSimilarFiles: () => ipcRenderer.invoke('smart-paste:find-similar'),
     applySmartPaste: (filePath) => ipcRenderer.invoke('smart-paste:apply-update', { filePath }),
 
+<<<<<<< HEAD
+=======
+    // Import from Clipboard functions
+    parseClipboardForImport: () => ipcRenderer.invoke('import:parse-clipboard'),
+    applyImport: (filePathsToUpdate) => ipcRenderer.invoke('import:apply-changes', { filePathsToUpdate }),
+
+>>>>>>> c242805 (Import Markdown Feature)
     // Function to improve the prompt text
     improvePrompt: (text) => ipcRenderer.invoke('improve-prompt', text),
     calculateTokens: (payload) => ipcRenderer.invoke('calculate-tokens', payload),

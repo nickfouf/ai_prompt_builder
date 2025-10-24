@@ -93,6 +93,26 @@
             line-height: 1;
         }
 
+<<<<<<< HEAD
+=======
+        #import-btn {
+            background-color: #17a2b8;
+            color: white;
+            border-color: #138496;
+            flex-direction: column;
+            padding: 4px 12px;
+            height: 100%;
+            gap: 4px;
+        }
+        #import-btn:hover { background-color: #138496; }
+        #import-btn .shortcut {
+            font-size: 9px;
+            font-weight: normal;
+            color: #e0f7fa;
+            line-height: 1;
+        }
+
+>>>>>>> c242805 (Import Markdown Feature)
         #clear-btn { background-color: #dc2626; color: white; margin-left: auto; border-color: #b91c1c; }
         #clear-btn:hover { background-color: #b91c1c; }
 
@@ -333,6 +353,25 @@
         .similarity-item-score { font-size: 16px; font-weight: 500; color: #475569; margin-right: 15px; min-width: 70px; text-align: right; }
         .similarity-item-apply-btn { padding: 8px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; border: none; cursor: pointer; background-color: #28a745; color: white; transition: background-color 0.2s; }
         .similarity-item-apply-btn:hover { background-color: #218838; }
+<<<<<<< HEAD
+=======
+
+        /* --- Import Modal Styles --- */
+        #import-close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #aaa; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 5px; }
+        #import-close-btn:hover { color: #dc3545; }
+        #import-list { list-style: none; padding: 0; margin: 20px 0; max-height: 50vh; overflow-y: auto; }
+        .import-item { display: flex; align-items: center; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
+        .import-item.not-found .import-item-name { color: #dc3545; }
+        .import-item-info { flex-grow: 1; }
+        .import-item-name { font-weight: bold; font-size: 16px; }
+        .import-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
+        .import-item.not-found .import-item-path { color: #e57373; }
+        .import-item-score { font-size: 14px; font-weight: 500; color: #475569; margin-left: 15px; min-width: 120px; text-align: right; }
+        #import-cancel-btn { background-color: #6c757d; color: white; }
+        #import-cancel-btn:hover { background-color: #5a6268; }
+        #import-apply-btn { background-color: #28a745; color: white; }
+        #import-apply-btn:hover { background-color: #218838; }
+>>>>>>> c242805 (Import Markdown Feature)
     </style>
 </head>
 <body>
@@ -351,6 +390,10 @@
     </button>
     <button id="copy">Copy Markdown<span class="shortcut">Ctrl+Shift+C</span></button>
     <button id="smart-paste-btn">Smart Paste<span class="shortcut">Ctrl+Shift+V</span></button>
+<<<<<<< HEAD
+=======
+    <button id="import-btn">Import<span class="shortcut">Ctrl+Shift+I</span></button>
+>>>>>>> c242805 (Import Markdown Feature)
     <div id="token-container">
         <span>Tokens:</span>
         <span id="token-value">-</span>
@@ -400,6 +443,22 @@
     </div>
 </div>
 
+<<<<<<< HEAD
+=======
+<div id="import-dialog" class="modal-overlay">
+    <div class="modal-content smart-paste-content">
+        <button id="import-close-btn">&times;</button>
+        <h2>Importing from Clipboard</h2>
+        <p>The following files will be updated. Files in <span style="color: #dc3545;">red</span> were not found in the current project.</p>
+        <ul id="import-list"></ul>
+        <div class="modal-buttons">
+            <button id="import-cancel-btn">Cancel</button>
+            <button id="import-apply-btn">Apply Changes</button>
+        </div>
+    </div>
+</div>
+
+>>>>>>> c242805 (Import Markdown Feature)
 
 <script>
     const fileListContainer = document.getElementById('file-list-container');
@@ -421,6 +480,15 @@
     const smartPasteCloseBtn = document.getElementById('smart-paste-close-btn');
     const similarityList = document.getElementById('similarity-list');
     const templateNameDisplay = document.getElementById('template-name-display');
+<<<<<<< HEAD
+=======
+    const importBtn = document.getElementById('import-btn');
+    const importDialog = document.getElementById('import-dialog');
+    const importCloseBtn = document.getElementById('import-close-btn');
+    const importList = document.getElementById('import-list');
+    const importCancelBtn = document.getElementById('import-cancel-btn');
+    const importApplyBtn = document.getElementById('import-apply-btn');
+>>>>>>> c242805 (Import Markdown Feature)
 
 
     let copyTimeoutId;
@@ -524,6 +592,65 @@
         smartPasteDialog.classList.remove('visible');
     });
 
+<<<<<<< HEAD
+=======
+    importBtn.addEventListener('click', async () => {
+        importList.innerHTML = '<p>Analyzing clipboard content for files...</p>';
+        importDialog.classList.add('visible');
+        importApplyBtn.disabled = true;
+        try {
+            const analysis = await window.electronAPI.parseClipboardForImport();
+            renderImportList(analysis);
+        } catch (error) {
+            console.error('Failed to parse clipboard for import:', error);
+            importList.innerHTML = '<p>Error analyzing clipboard. See console for details.</p>';
+        }
+    });
+
+    importCloseBtn.addEventListener('click', () => {
+        importDialog.classList.remove('visible');
+    });
+
+    importCancelBtn.addEventListener('click', () => {
+        importDialog.classList.remove('visible');
+    });
+
+    importApplyBtn.addEventListener('click', async () => {
+        const foundFiles = Array.from(importList.querySelectorAll('.import-item:not(.not-found)'))
+            .map(item => item.dataset.path);
+
+        if (foundFiles.length === 0) {
+            importDialog.classList.remove('visible');
+            return;
+        }
+
+        importApplyBtn.textContent = 'Applying...';
+        importApplyBtn.disabled = true;
+
+        try {
+            const result = await window.electronAPI.applyImport(foundFiles);
+            if (result.success) {
+                renderFileTree(result.updatedFiles);
+                requestTokenCountUpdate();
+                importDialog.classList.remove('visible');
+                copyNotification.textContent = 'Imported!';
+                copyNotification.classList.add('visible');
+                copyTimeoutId = setTimeout(() => {
+                    copyNotification.classList.remove('visible');
+                }, 2000);
+            } else {
+                console.error('Failed to apply import:', result.error);
+                alert('Failed to apply import: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error applying import:', error);
+        } finally {
+            importApplyBtn.textContent = 'Apply Changes';
+            importApplyBtn.disabled = false;
+        }
+    });
+
+>>>>>>> c242805 (Import Markdown Feature)
     improveBtn.addEventListener('click', async () => {
         const originalText = promptInput.value;
         if (!originalText.trim()) {
@@ -639,6 +766,13 @@
             event.preventDefault();
             document.getElementById('smart-paste-btn').click();
         }
+<<<<<<< HEAD
+=======
+        if (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'i')) {
+            event.preventDefault();
+            document.getElementById('import-btn').click();
+        }
+>>>>>>> c242805 (Import Markdown Feature)
     });
 
 
@@ -774,6 +908,50 @@
         });
     }
 
+<<<<<<< HEAD
+=======
+    function renderImportList(analysis) {
+        if (!analysis || analysis.length === 0) {
+            importList.innerHTML = '<p style="text-align: center; color: #6c757d;">No valid file formats found in clipboard.</p>';
+            importApplyBtn.style.display = 'none';
+            return;
+        }
+
+        const foundFilesCount = analysis.filter(f => f.found).length;
+        importApplyBtn.style.display = foundFilesCount > 0 ? 'inline-block' : 'none';
+        importApplyBtn.disabled = foundFilesCount === 0;
+
+        importList.innerHTML = '';
+        analysis.forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'import-item';
+            const fileBaseName = file.path.split(/[\\/]/).pop();
+            const fileDir = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '.';
+
+            if (file.found) {
+                li.dataset.path = file.path; // The full path of the project file
+                li.innerHTML = `
+                    <div class="import-item-info">
+                        <div class="import-item-name">${file.displayPath.split(/[\\/]/).pop()}</div>
+                        <div class="import-item-path">${file.displayPath.substring(0, file.displayPath.lastIndexOf('/'))}</div>
+                    </div>
+                    <div class="import-item-score">~${file.difference.toFixed(2)}% different</div>
+                `;
+            } else {
+                li.classList.add('not-found');
+                li.innerHTML = `
+                    <div class="import-item-info">
+                        <div class="import-item-name">${fileBaseName}</div>
+                        <div class="import-item-path">${fileDir}</div>
+                    </div>
+                    <div class="import-item-score">Not in project</div>
+                `;
+            }
+            importList.appendChild(li);
+        });
+    }
+
+>>>>>>> c242805 (Import Markdown Feature)
     function handleFileUpdates(result) {
         if (result.templateName) {
             templateNameDisplay.textContent = result.templateName;

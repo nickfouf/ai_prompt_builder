@@ -1,6 +1,10 @@
 {
   "name": "ai-prompt-builder",
+<<<<<<< HEAD
   "version": "1.0.2",
+=======
+  "version": "1.0.3",
+>>>>>>> c242805 (Import Markdown Feature)
   "description": "AI Prompt Builder desktop app",
   "author": "Your Name",
   "main": "main.js",
