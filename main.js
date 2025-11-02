@@ -25,13 +25,15 @@ let currentSession = {
 
 // --- File processing logic and helpers ---
 const EXT_MAP = {
-    java: 'Java', kt: 'Kotlin', txt: '', html: 'HTML', js: 'JavaScript',
+    java: 'Java', kt: 'Kotlin', kts: 'Kotlin', txt: '', html: 'HTML', js: 'JavaScript',
     json: 'JSON', php: 'PHP', cpp: 'C++', c: 'C', h: 'C', css: 'CSS',
     py: 'Python', rb: 'Ruby', rs: 'Rust', go: 'Go', ts: 'TypeScript',
     jsx: 'JavaScript', tsx: 'TypeScript', sh: 'bash', xml: 'XML',
     yml: 'YAML', yaml: 'YAML', md: 'Markdown', swift: 'Swift', scala: 'Scala',
     sql: 'SQL', dart: 'Dart', lua: 'Lua', r: 'R',
     gradle: 'Groovy',
+    bat: 'bat',
+    support: '',
 };
 
 const getAllFiles = (dir, files = []) => {
