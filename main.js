@@ -607,8 +607,8 @@ ipcMain.handle('smart-paste:apply-update', async (_, { filePath }) => {
 
 function parseFilesFromClipboard(clipboardText) {
     const files = [];
-    // CORRECTED REGEX: More flexible with whitespace and optional elements.
-    const regex = /### `([^`]+)`\s*```(?:[^\n]*)?\n([\s\S]*?)\n?```/g;
+    // REGEX: Handles optional text between file path and code block.
+    const regex = /### `([^`]+)`[\s\S]*?```(?:[^\n]*)?\n([\s\S]*?)\n?```/g;
     let match;
     while ((match = regex.exec(clipboardText)) !== null) {
         files.push({
@@ -683,7 +683,7 @@ ipcMain.handle('import:parse-clipboard', async () => {
         } else {
             return { found: false, path: clipboardFile.path };
         }
-    });
+    }).filter(item => !item.found || item.difference > 0);
 
     return analysis;
 });
