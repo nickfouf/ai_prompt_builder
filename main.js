@@ -169,36 +169,38 @@ function generateMarkdownTree(files) {
 
 async function processFiles(fileObjects) {
     let errorMarkdown = '';
+    const successfulFilesData = [];
 
     // Filter for enabled files to generate markdown
     const enabledFileObjects = fileObjects.filter(f => f.enabled);
     const enabledFilePaths = enabledFileObjects.map(f => f.path);
     const enabledDisplayPaths = generateDisplayPaths(enabledFilePaths);
 
-    const supportedFileData = [];
-    for (const file of enabledFileObjects) {
+    for (let i = 0; i < enabledFileObjects.length; i++) {
+        const file = enabledFileObjects[i];
+        const displayPath = enabledDisplayPaths[i];
+
         try {
             if (!fs.existsSync(file.path)) {
                 errorMarkdown += `### \`${file.path}\`\n\n\`\`\`\n[Error: File not found]\n\`\`\`\n\n`;
-                continue;
+                continue; // Skip this file
             }
             const ext = path.extname(file.path).slice(1).toLowerCase();
             const content = fs.readFileSync(file.path, 'utf-8');
             const lang = EXT_MAP[ext] || '';
-            supportedFileData.push({ content, lang });
+            successfulFilesData.push({ displayPath, content, lang });
         } catch (err) {
             errorMarkdown += `### \`${file.path}\`\n\n\`\`\`\n[Error reading file]\n\`\`\`\n\n`;
         }
     }
 
-    let contentMarkdown = '';
-    enabledFileObjects.forEach((_file, index) => {
-        const displayPath = enabledDisplayPaths[index].replace(/\\/g, '/');
-        const { content, lang } = supportedFileData[index];
-        contentMarkdown += `### \`${displayPath}\`\n\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
-    });
+    let contentMarkdown = successfulFilesData.map(data => {
+        const displayPath = data.displayPath.replace(/\\/g, '/');
+        return `### \`${displayPath}\`\n\n\`\`\`${data.lang}\n${data.content}\n\`\`\`\n\n`;
+    }).join('');
 
-    if(contentMarkdown !== '' ) contentMarkdown = '## Project Files:\n\n' + contentMarkdown;
+
+    if (contentMarkdown !== '') contentMarkdown = '## Project Files:\n\n' + contentMarkdown;
 
     // Generate display paths for ALL files (enabled or not) for the UI tree
     const allFilePaths = fileObjects.map(f => f.path);
@@ -689,28 +691,63 @@ ipcMain.handle('import:parse-clipboard', async () => {
 });
 
 
-ipcMain.handle('import:apply-changes', async (_, { filePathsToUpdate }) => {
+ipcMain.handle('import:apply-changes', async (event, { approvedPaths }) => {
     const clipboardText = clipboard.readText();
-    if (!clipboardText || !filePathsToUpdate || filePathsToUpdate.length === 0) {
-        return { success: false, error: 'No clipboard content or no files selected for update.' };
+    if (!clipboardText || !approvedPaths || approvedPaths.length === 0) {
+        return { success: false, error: 'No clipboard content or no files selected for import.' };
     }
 
+    const win = BrowserWindow.fromWebContents(event.sender);
     const clipboardFiles = parseFilesFromClipboard(clipboardText);
     const projectFiles = currentSession.lastFiles;
     const projectFilePaths = projectFiles.map(f => f.path);
     const projectDisplayPaths = generateDisplayPaths(projectFilePaths).map(p => p.replace(/\\/g, '/'));
 
+    const newlyCreatedFilePaths = [];
+
     try {
         for (const clipboardFile of clipboardFiles) {
             const match = findBestMatch(clipboardFile.path, projectFiles, projectDisplayPaths);
-            if (match && filePathsToUpdate.includes(match.file.path)) {
-                fs.writeFileSync(match.file.path, clipboardFile.content, 'utf-8');
+
+            if (match) { // This is a potential update for an existing file
+                if (approvedPaths.includes(match.file.path)) {
+                    // It's an approved update
+                    fs.writeFileSync(match.file.path, clipboardFile.content, 'utf-8');
+                }
+            } else { // This is a potential new file
+                if (approvedPaths.includes(clipboardFile.path)) {
+                    // It's an approved creation, so we ask the user where to save it.
+                    const projectRootForSaving = findLowestCommonAncestor(projectFilePaths.length > 0 ? projectFilePaths : [currentSession.lastPath || app.getPath('documents')]);
+
+                    const saveResult = await dialog.showSaveDialog(win, {
+                        title: `Save New File: ${clipboardFile.path}`,
+                        defaultPath: path.join(currentSession.lastPath || projectRootForSaving, path.basename(clipboardFile.path)),
+                        buttonLabel: 'Save File'
+                    });
+
+                    if (!saveResult.canceled && saveResult.filePath) {
+                        const newFilePath = saveResult.filePath;
+                        fs.writeFileSync(newFilePath, clipboardFile.content, 'utf-8');
+                        newlyCreatedFilePaths.push(newFilePath);
+                        // Update lastPath for the next save dialog in this loop
+                        currentSession.lastPath = path.dirname(newFilePath);
+                    }
+                }
             }
         }
+
+        // If new files were created, add them to the current session's file list.
+        if (newlyCreatedFilePaths.length > 0) {
+            processAndMergeFiles(newlyCreatedFilePaths);
+        }
+
+        saveCurrentSession();
+        // Reprocess all files to get the fresh list for the renderer.
         const result = await processFiles(currentSession.lastFiles);
         return { success: true, updatedFiles: result.filesForRenderer };
+
     } catch (err) {
-        console.error(`Failed to write file during import:`, err);
+        console.error(`Failed to apply import:`, err);
         return { success: false, error: err.message };
     }
 });

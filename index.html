@@ -356,11 +356,17 @@
         #import-close-btn:hover { color: #dc3545; }
         #import-list { list-style: none; padding: 0; margin: 20px 0; max-height: 50vh; overflow-y: auto; }
         .import-item { display: flex; align-items: center; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
-        .import-item.not-found .import-item-name { color: #dc3545; }
+        /* Style for new files (which are "not-found" in the project) */
+        .import-item.not-found .import-item-name { color: #28a745; }
+        .import-item.not-found .import-item-path { color: #67b87a; }
+        .import-item.not-found .import-item-score { color: #28a745; font-weight: bold; }
+        .import-item-checkbox {
+            margin-right: 15px;
+            transform: scale(1.2);
+        }
         .import-item-info { flex-grow: 1; }
         .import-item-name { font-weight: bold; font-size: 16px; }
         .import-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
-        .import-item.not-found .import-item-path { color: #e57373; }
         .import-item-score { font-size: 14px; font-weight: 500; color: #475569; margin-left: 15px; min-width: 120px; text-align: right; }
         #import-cancel-btn { background-color: #6c757d; color: white; }
         #import-cancel-btn:hover { background-color: #5a6268; }
@@ -438,7 +444,7 @@
     <div class="modal-content smart-paste-content">
         <button id="import-close-btn">&times;</button>
         <h2>Importing from Clipboard</h2>
-        <p>The following files will be updated. Files in <span style="color: #dc3545;">red</span> were not found in the current project.</p>
+        <p>Select files to update or add to the project. New files are highlighted in <span style="color: #28a745;">green</span>.</p>
         <ul id="import-list"></ul>
         <div class="modal-buttons">
             <button id="import-cancel-btn">Cancel</button>
@@ -599,10 +605,10 @@
     });
 
     importApplyBtn.addEventListener('click', async () => {
-        const foundFiles = Array.from(importList.querySelectorAll('.import-item:not(.not-found)'))
-            .map(item => item.dataset.path);
+        const approvedPaths = Array.from(importList.querySelectorAll('.import-item-checkbox:checked'))
+            .map(checkbox => checkbox.closest('.import-item').dataset.path);
 
-        if (foundFiles.length === 0) {
+        if (approvedPaths.length === 0) {
             importDialog.classList.remove('visible');
             return;
         }
@@ -611,9 +617,10 @@
         importApplyBtn.disabled = true;
 
         try {
-            const result = await window.electronAPI.applyImport(foundFiles);
+            const result = await window.electronAPI.applyImport(approvedPaths);
             if (result.success) {
                 renderFileTree(result.updatedFiles);
+                syncFileListWithMain();
                 requestTokenCountUpdate();
                 importDialog.classList.remove('visible');
                 copyNotification.textContent = 'Imported!';
@@ -629,7 +636,7 @@
             console.error('Error applying import:', error);
         } finally {
             importApplyBtn.textContent = 'Apply Changes';
-            importApplyBtn.disabled = false;
+            // The button's disabled state will be updated by the 'change' listener if the modal stays open.
         }
     });
 
@@ -889,25 +896,24 @@
 
     function renderImportList(analysis) {
         if (!analysis || analysis.length === 0) {
-            importList.innerHTML = '<p style="text-align: center; color: #6c757d;">No valid file formats found in clipboard.</p>';
+            importList.innerHTML = '<p style="text-align: center; color: #6c757d;">No new or modified files found in clipboard.</p>';
             importApplyBtn.style.display = 'none';
             return;
         }
 
-        const foundFilesCount = analysis.filter(f => f.found).length;
-        importApplyBtn.style.display = foundFilesCount > 0 ? 'inline-block' : 'none';
-        importApplyBtn.disabled = foundFilesCount === 0;
+        importApplyBtn.style.display = 'inline-block';
+        importApplyBtn.disabled = false; // Items exist, so enable by default
 
         importList.innerHTML = '';
         analysis.forEach(file => {
             const li = document.createElement('li');
             li.className = 'import-item';
-            const fileBaseName = file.path.split(/[\\/]/).pop();
-            const fileDir = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '.';
+            const checkboxHtml = `<input type="checkbox" class="import-item-checkbox" checked>`;
 
             if (file.found) {
                 li.dataset.path = file.path; // The full path of the project file
                 li.innerHTML = `
+                    ${checkboxHtml}
                     <div class="import-item-info">
                         <div class="import-item-name">${file.displayPath.split(/[\\/]/).pop()}</div>
                         <div class="import-item-path">${file.displayPath.substring(0, file.displayPath.lastIndexOf('/'))}</div>
@@ -916,15 +922,25 @@
                 `;
             } else {
                 li.classList.add('not-found');
+                li.dataset.path = file.path; // The relative path from clipboard
+                const fileBaseName = file.path.split(/[\\/]/).pop();
+                const fileDir = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '.';
                 li.innerHTML = `
+                    ${checkboxHtml}
                     <div class="import-item-info">
                         <div class="import-item-name">${fileBaseName}</div>
                         <div class="import-item-path">${fileDir}</div>
                     </div>
-                    <div class="import-item-score">Not in project</div>
+                    <div class="import-item-score">New file</div>
                 `;
             }
             importList.appendChild(li);
+        });
+
+        // Single change listener on the parent list
+        importList.addEventListener('change', () => {
+            const anyChecked = importList.querySelector('.import-item-checkbox:checked');
+            importApplyBtn.disabled = !anyChecked;
         });
     }
 
@@ -951,4 +967,4 @@
 
 </script>
 </body>
-</html>
+</html>

@@ -49,7 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Import from Clipboard functions
     parseClipboardForImport: () => ipcRenderer.invoke('import:parse-clipboard'),
-    applyImport: (filePathsToUpdate) => ipcRenderer.invoke('import:apply-changes', { filePathsToUpdate }),
+    applyImport: (approvedPaths) => ipcRenderer.invoke('import:apply-changes', { approvedPaths }),
 
     // Function to improve the prompt text
     improvePrompt: (text) => ipcRenderer.invoke('improve-prompt', text),
@@ -78,4 +78,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onFileListUpdated: (callback) => {
         ipcRenderer.on('file-list-updated', (_, files) => callback(files));
     },
-});
+});
