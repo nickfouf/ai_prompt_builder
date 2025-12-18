@@ -610,7 +610,8 @@ ipcMain.handle('smart-paste:apply-update', async (_, { filePath }) => {
 function parseFilesFromClipboard(clipboardText) {
     const files = [];
     // REGEX: Handles optional text between file path and code block.
-    const regex = /### `([^`]+)`[\s\S]*?```(?:[^\n]*)?\n([\s\S]*?)\n?```/g;
+    // Updated regex to allow text between ### and the backticked file path.
+    const regex = /###.*?`([^`]+)`[\s\S]*?```(?:[^\n]*)?\n([\s\S]*?)\n?```/g;
     let match;
     while ((match = regex.exec(clipboardText)) !== null) {
         files.push({
