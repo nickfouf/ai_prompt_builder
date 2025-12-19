@@ -341,6 +341,30 @@
         #smart-paste-close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #aaa; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 5px; }
         #smart-paste-close-btn:hover { color: #dc3545; }
         .smart-paste-content h2 { margin-top: 0; margin-bottom: 20px; }
+        
+        #smart-paste-warning {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        #smart-paste-warning.hidden {
+            display: none;
+        }
+        #smart-paste-warning svg {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            stroke: #dc3545;
+        }
+
         #similarity-list { list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto; }
         .similarity-item { display: flex; align-items: center; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
         .similarity-item:last-child { margin-bottom: 0; }
@@ -368,6 +392,28 @@
         .import-item-name { font-weight: bold; font-size: 16px; }
         .import-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
         .import-item-score { font-size: 14px; font-weight: 500; color: #475569; margin-left: 15px; min-width: 120px; text-align: right; }
+        
+        /* New Style for Import Item Warning Badge */
+        .import-warning-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 0 10px;
+        }
+        .import-warning-badge svg {
+            width: 14px;
+            height: 14px;
+            stroke: #dc3545;
+            flex-shrink: 0;
+        }
+
         #import-cancel-btn { background-color: #6c757d; color: white; }
         #import-cancel-btn:hover { background-color: #5a6268; }
         #import-apply-btn { background-color: #28a745; color: white; }
@@ -436,6 +482,12 @@
     <div class="modal-content smart-paste-content">
         <button id="smart-paste-close-btn">&times;</button>
         <h2>Select a file to update</h2>
+        
+        <div id="smart-paste-warning" class="hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>Warning: Potential file content omitted.</span>
+        </div>
+        
         <ul id="similarity-list"></ul>
     </div>
 </div>
@@ -472,6 +524,7 @@
     const smartPasteBtn = document.getElementById('smart-paste-btn');
     const smartPasteDialog = document.getElementById('smart-paste-dialog');
     const smartPasteCloseBtn = document.getElementById('smart-paste-close-btn');
+    const smartPasteWarning = document.getElementById('smart-paste-warning');
     const similarityList = document.getElementById('similarity-list');
     const templateNameDisplay = document.getElementById('template-name-display');
     const importBtn = document.getElementById('import-btn');
@@ -569,10 +622,20 @@
             return;
         }
         similarityList.innerHTML = '<p>Analyzing clipboard content...</p>';
+        smartPasteWarning.classList.add('hidden'); // Reset warning state
+        
         smartPasteDialog.classList.add('visible');
         try {
-            const files = await window.electronAPI.findSimilarFiles();
-            renderSimilarityList(files);
+            const result = await window.electronAPI.findSimilarFiles();
+            
+            // Handle warning visibility based on result from main process
+            if (result.hasOmission) {
+                smartPasteWarning.classList.remove('hidden');
+            } else {
+                smartPasteWarning.classList.add('hidden');
+            }
+
+            renderSimilarityList(result.files);
         } catch (error) {
             console.error('Failed to find similar files:', error);
             similarityList.innerHTML = '<p>Error analyzing files. See console for details.</p>';
@@ -909,6 +972,17 @@
             const li = document.createElement('li');
             li.className = 'import-item';
             const checkboxHtml = `<input type="checkbox" class="import-item-checkbox" checked>`;
+            
+            // Build the warning badge HTML if the flag is present
+            let warningHtml = '';
+            if (file.hasOmission) {
+                warningHtml = `
+                    <div class="import-warning-badge" title="Potential file content omitted">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        <span>Warning: Potential file content omitted.</span>
+                    </div>
+                `;
+            }
 
             if (file.found) {
                 li.dataset.path = file.path; // The full path of the project file
@@ -918,6 +992,7 @@
                         <div class="import-item-name">${file.displayPath.split(/[\\/]/).pop()}</div>
                         <div class="import-item-path">${file.displayPath.substring(0, file.displayPath.lastIndexOf('/'))}</div>
                     </div>
+                    ${warningHtml}
                     <div class="import-item-score">~${file.difference.toFixed(2)}% different</div>
                 `;
             } else {
@@ -931,6 +1006,7 @@
                         <div class="import-item-name">${fileBaseName}</div>
                         <div class="import-item-path">${fileDir}</div>
                     </div>
+                    ${warningHtml}
                     <div class="import-item-score">New file</div>
                 `;
             }

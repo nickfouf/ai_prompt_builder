@@ -558,8 +558,11 @@ ipcMain.handle('smart-paste:find-similar', async () => {
     const enabledFiles = currentSession.lastFiles.filter(f => f.enabled);
 
     if (!clipboardText || !enabledFiles || enabledFiles.length === 0) {
-        return [];
+        return { files: [], hasOmission: false };
     }
+
+    // Check for omission strings
+    const hasOmission = clipboardText.includes('/* ...') || clipboardText.includes('// ...');
 
     const enabledFilePaths = enabledFiles.map(f => f.path);
     const displayPaths = generateDisplayPaths(enabledFilePaths);
@@ -585,7 +588,10 @@ ipcMain.handle('smart-paste:find-similar', async () => {
 
     similarities.sort((a, b) => b.similarity - a.similarity);
 
-    return similarities;
+    return {
+        files: similarities,
+        hasOmission: hasOmission
+    };
 });
 
 
@@ -668,6 +674,9 @@ ipcMain.handle('import:parse-clipboard', async () => {
     const analysis = clipboardFiles.map(clipboardFile => {
         const match = findBestMatch(clipboardFile.path, projectFiles, projectDisplayPaths);
 
+        // Check for content omission in this specific file
+        const hasOmission = clipboardFile.content.includes('/* ...') || clipboardFile.content.includes('// ...');
+
         if (match) {
             try {
                 const projectFileContent = fs.readFileSync(match.file.path, 'utf-8');
@@ -678,13 +687,14 @@ ipcMain.handle('import:parse-clipboard', async () => {
                     path: match.file.path,
                     displayPath: match.displayPath,
                     difference: difference,
+                    hasOmission: hasOmission // Add flag
                 };
             } catch (err) {
                 console.error(`Could not read file for import comparison: ${match.file.path}`, err);
-                return { found: false, path: clipboardFile.path };
+                return { found: false, path: clipboardFile.path, hasOmission: hasOmission };
             }
         } else {
-            return { found: false, path: clipboardFile.path };
+            return { found: false, path: clipboardFile.path, hasOmission: hasOmission };
         }
     }).filter(item => !item.found || item.difference > 0);
 
