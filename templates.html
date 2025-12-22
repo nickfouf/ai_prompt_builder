@@ -89,6 +89,15 @@
         #confirm-no-btn:hover {
             background-color: #5a6268;
         }
+        #version-display {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 18px;
+            color: #888;
+            pointer-events: none;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -122,6 +131,8 @@
         </div>
     </div>
 </div>
+
+<div id="version-display"></div>
 
 <div id="confirm-dialog" class="modal-overlay">
     <div class="modal-content">
@@ -293,6 +304,11 @@
     document.getElementById('rename-template-name').addEventListener('keyup', (event) => {
         if (event.key === 'Enter') document.getElementById('rename-save-btn').click();
     });
+
+    (async () => {
+        const version = await window.electronAPI.getAppVersion();
+        document.getElementById('version-display').textContent = `v${version}`;
+    })();
 
     switchView('select');
     renderTemplates();

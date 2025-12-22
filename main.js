@@ -271,6 +271,10 @@ function createWindow() {
 
 // --- IPC Handlers for Template Management ---
 
+ipcMain.handle('app:get-version', () => {
+    return app.getVersion();
+});
+
 ipcMain.handle('templates:get-all', () => {
     try {
         const files = fs.readdirSync(TEMPLATES_DIR).filter(f => f.endsWith('.json'));

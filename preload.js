@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteTemplate: (uid) => ipcRenderer.invoke('templates:delete', uid),
     loadTemplate: (uid) => ipcRenderer.send('templates:load', uid),
     showTemplates: () => ipcRenderer.send('app:show-templates'),
+    // --- App Info ---
+    getAppVersion: () => ipcRenderer.invoke('app:get-version'),
 
     // --- File operation functions ---
     setFileState: (data) => ipcRenderer.send('file:set-state', data),
@@ -78,4 +80,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onFileListUpdated: (callback) => {
         ipcRenderer.on('file-list-updated', (_, files) => callback(files));
     },
-});
+});
