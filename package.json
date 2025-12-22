@@ -1,6 +1,6 @@
 {
   "name": "ai-prompt-builder",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "AI Prompt Builder desktop app",
   "author": "Your Name",
   "main": "main.js",
