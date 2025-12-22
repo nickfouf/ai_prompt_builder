@@ -4,14 +4,19 @@
     <meta charset="UTF-8">
     <title>AI Prompt Builder - Templates</title>
     <style>
-        /* ... (All styles remain exactly the same as before) ... */
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f9; color: #333; }
         .container { width: 100%; max-width: 600px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         h1 { margin-top: 0; text-align: center; }
         #template-list { list-style: none; padding: 0; margin: 20px 0; max-height: 50vh; overflow-y: auto; }
         .template-item { display: flex; align-items: center; padding: 15px; border-radius: 8px; margin-bottom: 10px; background-color: #f8f9fa; cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s; }
         .template-item:hover { background-color: #e9ecef; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .template-name { flex-grow: 1; font-size: 18px; user-select: none; }
+        
+        /* New and updated styles for template info and date */
+        .template-info { display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; }
+        .template-name { font-size: 18px; user-select: none; font-weight: 500; }
+        .template-date { font-size: 12px; color: #6c757d; margin-top: 4px; user-select: none; }
+
+        .template-actions { flex-shrink: 0; display: flex; align-items: center; }
         .template-actions button { background: none; border: none; cursor: pointer; font-size: 16px; padding: 5px 8px; border-radius: 5px; margin-left: 8px; transition: background-color 0.2s, color 0.2s; }
         .template-actions .rename-btn:hover { background-color: #ffc107; color: white; }
         .template-actions .delete-btn:hover { background-color: #dc3545; color: white; }
@@ -185,6 +190,10 @@
     async function renderTemplates() {
         const templates = await window.electronAPI.getTemplates();
         templateList.innerHTML = '';
+        
+        // Sort templates by modification date (newest first)
+        templates.sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+
         if (templates.length === 0) {
             templateList.innerHTML = '<p style="text-align: center; color: #6c757d;">No templates found. Create one to get started!</p>';
         } else {
@@ -197,9 +206,22 @@
                     window.electronAPI.loadTemplate(template.uid);
                 });
 
+                // Container for Name and Date
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'template-info';
+
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'template-name';
                 nameSpan.textContent = template.name;
+
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'template-date';
+                const dateObj = new Date(template.mtime);
+                // Format date nicely (e.g., "10/24/2023, 2:30 PM")
+                dateSpan.textContent = `Last modified: ${dateObj.toLocaleString()}`;
+
+                infoDiv.appendChild(nameSpan);
+                infoDiv.appendChild(dateSpan);
 
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'template-actions';
@@ -227,7 +249,7 @@
 
                 actionsDiv.appendChild(renameBtn);
                 actionsDiv.appendChild(deleteBtn);
-                li.appendChild(nameSpan);
+                li.appendChild(infoDiv); // Append info container instead of just nameSpan
                 li.appendChild(actionsDiv);
                 templateList.appendChild(li);
             });

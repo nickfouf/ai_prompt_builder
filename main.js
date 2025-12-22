@@ -252,9 +252,9 @@ function saveCurrentSession() {
 
 function createWindow() {
     const win = new BrowserWindow({
-        width: 940,
+        width: 1080,
         height: 800,
-        minWidth: 940,
+        minWidth: 1080,
         minHeight: 600,
         icon: path.join(__dirname, 'assets', 'icon.ico'),
         webPreferences: {
@@ -276,8 +276,14 @@ ipcMain.handle('templates:get-all', () => {
         const files = fs.readdirSync(TEMPLATES_DIR).filter(f => f.endsWith('.json'));
         const templates = files.map(file => {
             const filePath = path.join(TEMPLATES_DIR, file);
+            // Get stats to retrieve modification time
+            const stats = fs.statSync(filePath);
             const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-            return { uid: path.basename(file, '.json'), name: data.name };
+            return { 
+                uid: path.basename(file, '.json'), 
+                name: data.name,
+                mtime: stats.mtime // Add modification time to return object
+            };
         });
         return templates;
     } catch (err) {
@@ -553,16 +559,68 @@ ipcMain.handle('handle-dropped-paths', async (_, paths) => {
     return null;
 });
 
+// --- Diff Parsing Helper ---
+function parseDiffContent(text) {
+    // UPDATED REGEX: Matches 4 or more <, =, > symbols with loose context
+    // It captures:
+    // 1. <<<< followed by anything until newline
+    // 2. content (old part)
+    // 3. ==== followed by anything until newline (allows indentation)
+    // 4. content (new part)
+    // 5. >>>> followed by anything until newline (or end of string) (allows indentation)
+    // This allows finding diffs anywhere in the string, even if surrounded by other text and indented.
+    const diffRegex = /(<{4,}.*?)\r?\n([\s\S]*?)\r?\n\s*(={4,}.*?)\r?\n([\s\S]*?)\r?\n\s*(>{4,}.*?)(?:\r?\n|$)/g;
+    
+    let match;
+    const diffs = [];
+    
+    while ((match = diffRegex.exec(text)) !== null) {
+        diffs.push({
+            oldPart: match[2], // We keep newlines intact
+            newPart: match[4]
+        });
+    }
+
+    if (diffs.length > 0) {
+        return diffs;
+    }
+    return null;
+}
+
+function countOccurrences(string, subString, allowOverlapping) {
+    string += "";
+    subString += "";
+    if (subString.length <= 0) return (string.length + 1);
+
+    var n = 0,
+        pos = 0,
+        step = allowOverlapping ? 1 : subString.length;
+
+    while (true) {
+        pos = string.indexOf(subString, pos);
+        if (pos >= 0) {
+            ++n;
+            pos += step;
+        } else break;
+    }
+    return n;
+}
+
+
 ipcMain.handle('smart-paste:find-similar', async () => {
     const clipboardText = clipboard.readText();
     const enabledFiles = currentSession.lastFiles.filter(f => f.enabled);
 
     if (!clipboardText || !enabledFiles || enabledFiles.length === 0) {
-        return { files: [], hasOmission: false };
+        return { files: [], hasOmission: false, isDiff: false };
     }
 
     // Check for omission strings
     const hasOmission = clipboardText.includes('/* ...') || clipboardText.includes('// ...');
+
+    // Check for Diff Syntax
+    const diffs = parseDiffContent(clipboardText);
+    const isDiff = diffs !== null;
 
     const enabledFilePaths = enabledFiles.map(f => f.path);
     const displayPaths = generateDisplayPaths(enabledFilePaths);
@@ -570,28 +628,76 @@ ipcMain.handle('smart-paste:find-similar', async () => {
     const similarities = enabledFiles.map((file, index) => {
         try {
             const fileContent = fs.readFileSync(file.path, 'utf-8');
-            const similarity = textSimilarity.similarity.jaccard(clipboardText, fileContent);
+            let similarity = 0;
+            let matchCount = 0;
+
+            if (isDiff) {
+                // For Diff: Check if ALL distinct diffs from the clipboard exist in this file
+                const normalizedFile = fileContent.replace(/\r\n/g, '\n');
+                let allDiffsFound = true;
+                let totalDiffsInFile = 0;
+
+                for (const diff of diffs) {
+                    const normalizedOld = diff.oldPart.replace(/\r\n/g, '\n');
+                    const count = countOccurrences(normalizedFile, normalizedOld, false);
+                    
+                    if (count === 0) {
+                        allDiffsFound = false;
+                        break; 
+                    }
+                    totalDiffsInFile += count;
+                }
+
+                if (allDiffsFound) {
+                    matchCount = totalDiffsInFile;
+                } else {
+                    matchCount = 0;
+                }
+
+                similarity = matchCount > 0 ? 100 : 0;
+
+            } else {
+                similarity = textSimilarity.similarity.jaccard(clipboardText, fileContent);
+                similarity = (similarity * 100).toFixed(2);
+            }
+
             return {
                 path: file.path,
                 displayPath: displayPaths[index],
-                similarity: (similarity * 100).toFixed(2) // Two-digit precision
+                similarity: similarity,
+                matchCount: matchCount // Only used if isDiff is true (Sum of all diff replacements)
             };
         } catch (err) {
             console.error(`Could not read file for similarity check: ${file.path}`, err);
             return {
                 path: file.path,
                 displayPath: displayPaths[index],
-                similarity: (0).toFixed(2)
+                similarity: 0,
+                matchCount: 0
             };
         }
     });
 
-    similarities.sort((a, b) => b.similarity - a.similarity);
-
-    return {
-        files: similarities,
-        hasOmission: hasOmission
-    };
+    if (isDiff) {
+        // Filter: only files that have matched ALL diffs at least once
+        const matchingFiles = similarities.filter(f => f.matchCount > 0);
+        // Sort by match count desc
+        matchingFiles.sort((a, b) => b.matchCount - a.matchCount);
+        return {
+            files: matchingFiles,
+            hasOmission: false, 
+            isDiff: true,
+            diffCount: diffs.length // Pass number of distinct diff blocks found
+        };
+    } else {
+        similarities.sort((a, b) => b.similarity - a.similarity);
+        return {
+            files: similarities,
+            hasOmission: hasOmission,
+            isDiff: false,
+            diffCount: 0
+        };
+    }
 });
 
 
@@ -602,7 +708,31 @@ ipcMain.handle('smart-paste:apply-update', async (_, { filePath }) => {
     }
 
     try {
-        fs.writeFileSync(filePath, clipboardText, 'utf-8');
+        const diffs = parseDiffContent(clipboardText);
+
+        if (diffs) {
+            // Diff Mode: Replace ALL occurrences of oldPart with newPart for EVERY diff block
+            // NOTE: We ignore the rest of the clipboardText here, using only the diffs found.
+            let content = fs.readFileSync(filePath, 'utf-8');
+            
+            diffs.forEach(diff => {
+                // Try simple string split/join logic
+                
+                if (content.indexOf(diff.oldPart) === -1 && content.indexOf(diff.oldPart.replace(/\r\n/g, '\n')) !== -1) {
+                     // Normalize content temporarily could be risky, but if it's the only way...
+                     // For now, sticking to exact match.
+                }
+
+                const parts = content.split(diff.oldPart);
+                content = parts.join(diff.newPart);
+            });
+
+            fs.writeFileSync(filePath, content, 'utf-8');
+        } else {
+            // Standard Mode: Overwrite
+            fs.writeFileSync(filePath, clipboardText, 'utf-8');
+        }
+
         const result = await processFiles(currentSession.lastFiles);
         return { success: true, updatedFiles: result.filesForRenderer };
     } catch (err) {
@@ -615,15 +745,46 @@ ipcMain.handle('smart-paste:apply-update', async (_, { filePath }) => {
 
 function parseFilesFromClipboard(clipboardText) {
     const files = [];
-    // REGEX: Handles optional text between file path and code block.
-    // Updated regex to allow text between ### and the backticked file path.
-    const regex = /###.*?`([^`]+)`[\s\S]*?```(?:[^\n]*)?\n([\s\S]*?)\n?```/g;
-    let match;
-    while ((match = regex.exec(clipboardText)) !== null) {
-        files.push({
-            path: match[1].trim().replace(/\\/g, '/'), // Path is in group 1
-            content: match[2],                       // Content is in group 2
-        });
+    // UPDATED PARSING STRATEGY:
+    // Split text by "### " markers that appear at start of line.
+    // This handles multiple code blocks per file header robustly.
+    const sections = clipboardText.split(/(?:\r?\n|^)### /);
+
+    for (const section of sections) {
+        if (!section.trim()) continue;
+
+        // 1. Extract File Path
+        // The first line of the section is the file path header.
+        const firstLineEnd = section.indexOf('\n');
+        if (firstLineEnd === -1) continue; // Malformed section
+
+        const headerLine = section.substring(0, firstLineEnd);
+        // Path might be wrapped in backticks `path` or plain text
+        const pathMatch = headerLine.match(/`([^`]+)`/);
+        const filePath = pathMatch ? pathMatch[1] : headerLine.trim();
+
+        if (!filePath) continue;
+
+        // 2. Extract All Code Blocks for this File
+        const contentPart = section.substring(firstLineEnd);
+        // Regex to find content inside ```code ... ``` blocks
+        const codeBlockRegex = /```(?:[^\n]*)\n([\s\S]*?)```/g;
+        let blockMatch;
+        let mergedContent = '';
+
+        while ((blockMatch = codeBlockRegex.exec(contentPart)) !== null) {
+            // Join blocks with newlines. 
+            // If it's a diff, strict adjacency doesn't matter as we parse specific blocks later.
+            // If it's content, merging is the best guess.
+            mergedContent += blockMatch[1] + '\n';
+        }
+
+        if (mergedContent) {
+            files.push({
+                path: filePath.trim().replace(/\\/g, '/'),
+                content: mergedContent
+            });
+        }
     }
     return files;
 }
@@ -676,27 +837,59 @@ ipcMain.handle('import:parse-clipboard', async () => {
 
         // Check for content omission in this specific file
         const hasOmission = clipboardFile.content.includes('/* ...') || clipboardFile.content.includes('// ...');
+        
+        // Check for Diff Syntax inside this specific file's content
+        // This will find diffs anywhere in the code block content
+        const diffs = parseDiffContent(clipboardFile.content);
+        const isDiff = diffs !== null;
+        let anyDiffPartNotFound = false; // Flag to track if ANY old part is missing
 
         if (match) {
             try {
                 const projectFileContent = fs.readFileSync(match.file.path, 'utf-8');
-                const similarity = textSimilarity.similarity.jaccard(clipboardFile.content, projectFileContent);
-                const difference = (1 - similarity) * 100;
+                let difference = 0;
+                let matchCount = 0;
+
+                if (isDiff) {
+                    const normalizedFile = projectFileContent.replace(/\r\n/g, '\n');
+                    
+                    diffs.forEach(diff => {
+                        const normalizedOld = diff.oldPart.replace(/\r\n/g, '\n');
+                        const count = countOccurrences(normalizedFile, normalizedOld, false);
+                        if (count === 0) {
+                            anyDiffPartNotFound = true;
+                        }
+                        matchCount += count;
+                    });
+
+                } else {
+                    const similarity = textSimilarity.similarity.jaccard(clipboardFile.content, projectFileContent);
+                    difference = (1 - similarity) * 100;
+                }
+
                 return {
                     found: true,
                     path: match.file.path,
                     displayPath: match.displayPath,
                     difference: difference,
-                    hasOmission: hasOmission // Add flag
+                    hasOmission: hasOmission,
+                    isDiff: isDiff,
+                    matchCount: matchCount,
+                    anyDiffPartNotFound: anyDiffPartNotFound
                 };
             } catch (err) {
                 console.error(`Could not read file for import comparison: ${match.file.path}`, err);
-                return { found: false, path: clipboardFile.path, hasOmission: hasOmission };
+                return { found: false, path: clipboardFile.path, hasOmission: hasOmission, isDiff: isDiff, matchCount: 0, anyDiffPartNotFound: true };
             }
         } else {
-            return { found: false, path: clipboardFile.path, hasOmission: hasOmission };
+            return { found: false, path: clipboardFile.path, hasOmission: hasOmission, isDiff: isDiff, matchCount: 0, anyDiffPartNotFound: true };
         }
-    }).filter(item => !item.found || item.difference > 0);
+    }).filter(item => {
+        // Filter logic:
+        if (item.isDiff) return true;
+        if (!item.found) return true;
+        return item.difference > 0;
+    });
 
     return analysis;
 });
@@ -719,14 +912,35 @@ ipcMain.handle('import:apply-changes', async (event, { approvedPaths }) => {
     try {
         for (const clipboardFile of clipboardFiles) {
             const match = findBestMatch(clipboardFile.path, projectFiles, projectDisplayPaths);
+            // Re-parse diffs to apply them
+            const diffs = parseDiffContent(clipboardFile.content);
 
             if (match) { // This is a potential update for an existing file
                 if (approvedPaths.includes(match.file.path)) {
                     // It's an approved update
-                    fs.writeFileSync(match.file.path, clipboardFile.content, 'utf-8');
+                    if (diffs) {
+                         // Apply Diff replacement logic for ALL diff blocks found in the content
+                         // NOTE: We ignore the rest of clipboardFile.content, using only the diffs found.
+                        let content = fs.readFileSync(match.file.path, 'utf-8');
+                        diffs.forEach(diff => {
+                            const parts = content.split(diff.oldPart);
+                            content = parts.join(diff.newPart);
+                        });
+                        fs.writeFileSync(match.file.path, content, 'utf-8');
+                    } else {
+                        // Standard overwrite
+                        fs.writeFileSync(match.file.path, clipboardFile.content, 'utf-8');
+                    }
                 }
             } else { // This is a potential new file
                 if (approvedPaths.includes(clipboardFile.path)) {
+                    
+                    // SAFETY CHECK: If it is a new file but content is a DIFF, do not create it.
+                    if (diffs) {
+                        console.warn(`Skipping creation of new file ${clipboardFile.path} because content is a DIFF.`);
+                        continue; 
+                    }
+
                     // It's an approved creation, so we ask the user where to save it.
                     const projectRootForSaving = findLowestCommonAncestor(projectFilePaths.length > 0 ? projectFilePaths : [currentSession.lastPath || app.getPath('documents')]);
 

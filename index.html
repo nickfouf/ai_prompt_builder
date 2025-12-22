@@ -342,6 +342,15 @@
         #smart-paste-close-btn:hover { color: #dc3545; }
         .smart-paste-content h2 { margin-top: 0; margin-bottom: 20px; }
         
+        #smart-paste-subtitle {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2563eb;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         #smart-paste-warning {
             color: #721c24;
             background-color: #f8d7da;
@@ -372,18 +381,28 @@
         .similarity-item-name { font-weight: bold; font-size: 16px; color: #1e293b; }
         .similarity-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
         .similarity-item-score { font-size: 16px; font-weight: 500; color: #475569; margin-right: 15px; min-width: 70px; text-align: right; }
+        .similarity-item-score.alert { color: #dc3545; font-weight: bold; }
         .similarity-item-apply-btn { padding: 8px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; border: none; cursor: pointer; background-color: #28a745; color: white; transition: background-color 0.2s; }
         .similarity-item-apply-btn:hover { background-color: #218838; }
+        .similarity-item-apply-btn.replace { background-color: #007bff; }
+        .similarity-item-apply-btn.replace:hover { background-color: #0056b3; }
 
         /* --- Import Modal Styles --- */
         #import-close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #aaa; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 5px; }
         #import-close-btn:hover { color: #dc3545; }
         #import-list { list-style: none; padding: 0; margin: 20px 0; max-height: 50vh; overflow-y: auto; }
         .import-item { display: flex; align-items: center; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
+        
         /* Style for new files (which are "not-found" in the project) */
         .import-item.not-found .import-item-name { color: #28a745; }
         .import-item.not-found .import-item-path { color: #67b87a; }
         .import-item.not-found .import-item-score { color: #28a745; font-weight: bold; }
+
+        /* Style for new files that contain Diff content (Error state) */
+        .import-item.diff-error .import-item-name { color: #dc3545; }
+        .import-item.diff-error .import-item-path { color: #e4606d; }
+        .import-item.diff-error .import-item-score { color: #dc3545; font-weight: bold; }
+
         .import-item-checkbox {
             margin-right: 15px;
             transform: scale(1.2);
@@ -392,20 +411,23 @@
         .import-item-name { font-weight: bold; font-size: 16px; }
         .import-item-path { font-size: 13px; color: #64748b; margin-top: 2px; font-family: monospace; }
         .import-item-score { font-size: 14px; font-weight: 500; color: #475569; margin-left: 15px; min-width: 120px; text-align: right; }
+        .import-item-score.alert { color: #dc3545; font-weight: bold; }
         
-        /* New Style for Import Item Warning Badge */
-        .import-warning-badge {
+        /* New Style for Import Item Warning/Info Badges */
+        .import-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            color: #721c24;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
             padding: 4px 8px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: 500;
             margin: 0 10px;
+        }
+        .import-warning-badge {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
         }
         .import-warning-badge svg {
             width: 14px;
@@ -413,6 +435,12 @@
             stroke: #dc3545;
             flex-shrink: 0;
         }
+        .import-info-badge {
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+        }
+
 
         #import-cancel-btn { background-color: #6c757d; color: white; }
         #import-cancel-btn:hover { background-color: #5a6268; }
@@ -482,6 +510,7 @@
     <div class="modal-content smart-paste-content">
         <button id="smart-paste-close-btn">&times;</button>
         <h2>Select a file to update</h2>
+        <div id="smart-paste-subtitle"></div>
         
         <div id="smart-paste-warning" class="hidden">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -525,6 +554,7 @@
     const smartPasteDialog = document.getElementById('smart-paste-dialog');
     const smartPasteCloseBtn = document.getElementById('smart-paste-close-btn');
     const smartPasteWarning = document.getElementById('smart-paste-warning');
+    const smartPasteSubtitle = document.getElementById('smart-paste-subtitle');
     const similarityList = document.getElementById('similarity-list');
     const templateNameDisplay = document.getElementById('template-name-display');
     const importBtn = document.getElementById('import-btn');
@@ -623,6 +653,7 @@
         }
         similarityList.innerHTML = '<p>Analyzing clipboard content...</p>';
         smartPasteWarning.classList.add('hidden'); // Reset warning state
+        smartPasteSubtitle.textContent = ''; // Reset subtitle
         
         smartPasteDialog.classList.add('visible');
         try {
@@ -635,7 +666,7 @@
                 smartPasteWarning.classList.add('hidden');
             }
 
-            renderSimilarityList(result.files);
+            renderSimilarityList(result.files, result.isDiff, result.diffCount);
         } catch (error) {
             console.error('Failed to find similar files:', error);
             similarityList.innerHTML = '<p>Error analyzing files. See console for details.</p>';
@@ -908,11 +939,17 @@
         fileListContainer.appendChild(rootUl);
     }
 
-    function renderSimilarityList(files) {
+    function renderSimilarityList(files, isDiff, diffCount) {
+        // FIX: Display diff count subtitle even if no files matched, so user knows diffs were detected
+        if (isDiff && diffCount > 0) {
+            smartPasteSubtitle.textContent = `${diffCount} DIFFS Detected`;
+        }
+        
         if (!files || files.length === 0) {
-            similarityList.innerHTML = '<p style="text-align: center; color: #6c757d;">No enabled files to compare against.</p>';
+            similarityList.innerHTML = '<p style="text-align: center; color: #6c757d;">No matching files found.</p>';
             return;
         }
+
         similarityList.innerHTML = '';
         files.forEach(file => {
             const li = document.createElement('li');
@@ -920,18 +957,34 @@
             const fileBaseName = file.displayPath.split(/[\\/]/).pop();
             const fileDir = file.displayPath.includes('/') ? file.displayPath.substring(0, file.displayPath.lastIndexOf('/')) :
                 file.displayPath.includes('\\') ? file.displayPath.substring(0, file.displayPath.lastIndexOf('\\')) : '.';
+            
+            let scoreHtml = '';
+            let btnClass = 'similarity-item-apply-btn';
+            let btnText = 'Apply';
+
+            if (isDiff) {
+                const count = file.matchCount;
+                // If occurrences > 1, make text red
+                const scoreClass = 'similarity-item-score';
+                scoreHtml = `<div class="${scoreClass}">${count} matches</div>`;
+                btnClass += ' replace'; // Blue button
+                btnText = 'Replace';
+            } else {
+                scoreHtml = `<div class="similarity-item-score">${file.similarity}%</div>`;
+            }
+
             li.innerHTML = `
                 <div class="similarity-item-info">
                     <div class="similarity-item-name">${fileBaseName}</div>
                     <div class="similarity-item-path">${fileDir}</div>
                 </div>
-                <div class="similarity-item-score">${file.similarity}%</div>
-                <button class="similarity-item-apply-btn" data-path="${file.path}">Apply</button>
+                ${scoreHtml}
+                <button class="${btnClass}" data-path="${file.path}">${btnText}</button>
             `;
-            li.querySelector('.similarity-item-apply-btn').addEventListener('click', async (event) => {
+            li.querySelector('button').addEventListener('click', async (event) => {
                 const button = event.currentTarget;
                 const filePath = button.dataset.path;
-                button.textContent = 'Applying...';
+                button.textContent = isDiff ? 'Replacing...' : 'Applying...';
                 button.disabled = true;
                 const result = await window.electronAPI.applySmartPaste(filePath);
                 if (result.success) {
@@ -939,7 +992,7 @@
                     requestTokenCountUpdate();
                     smartPasteDialog.classList.remove('visible');
                     clearTimeout(copyTimeoutId);
-                    copyNotification.textContent = 'Pasted!';
+                    copyNotification.textContent = isDiff ? 'Replaced!' : 'Pasted!';
                     copyNotification.classList.add('visible');
                     copyTimeoutId = setTimeout(() => {
                         copyNotification.classList.remove('visible');
@@ -948,7 +1001,7 @@
                     console.error('Failed to apply smart paste:', result.error);
                     button.textContent = 'Error!';
                     setTimeout(() => {
-                        button.textContent = 'Apply';
+                        button.textContent = btnText;
                         button.disabled = false;
                     }, 2000);
                 }
@@ -971,18 +1024,64 @@
         analysis.forEach(file => {
             const li = document.createElement('li');
             li.className = 'import-item';
-            const checkboxHtml = `<input type="checkbox" class="import-item-checkbox" checked>`;
             
-            // Build the warning badge HTML if the flag is present
-            let warningHtml = '';
+            let checkboxHtml = `<input type="checkbox" class="import-item-checkbox" checked>`;
+            let badgesHtml = '';
+            
+            // Omission Warning
             if (file.hasOmission) {
-                warningHtml = `
-                    <div class="import-warning-badge" title="Potential file content omitted">
+                badgesHtml += `
+                    <div class="import-badge import-warning-badge" title="Potential file content omitted">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                         <span>Warning: Potential file content omitted.</span>
                     </div>
                 `;
             }
+
+            // Diff specific logic
+            let scoreHtml = '';
+            if (file.isDiff) {
+                // If it's a NEW file and contains DIFF, block it.
+                if (!file.found) {
+                     li.classList.add('diff-error');
+                     checkboxHtml = `<input type="checkbox" class="import-item-checkbox" disabled>`; // Disable so it's ignored
+                     badgesHtml += `
+                        <div class="import-badge import-warning-badge" title="Diff invalid on new files">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span>Can't apply DIFF to new files.</span>
+                        </div>
+                    `;
+                    scoreHtml = `<div class="import-item-score">Invalid Operation</div>`;
+                } else {
+                    // Existing file with diff logic
+                    const count = file.matchCount;
+
+                    if (file.anyDiffPartNotFound) {
+                         badgesHtml += `
+                            <div class="import-badge import-warning-badge" title="Old part not found">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                <span>Some old part were not found.</span>
+                            </div>
+                        `;
+                        scoreHtml = `<div class="import-item-score">${count} matches</div>`;
+                    } else {
+                         if (!file.hasOmission) {
+                             badgesHtml += `
+                                <div class="import-badge import-info-badge">
+                                    File part(s) will be replaced
+                                </div>
+                            `;
+                         }
+                         const scoreClass = 'import-item-score';
+                         scoreHtml = `<div class="${scoreClass}">${count} matches</div>`;
+                    }
+                }
+            } else if (file.found) {
+                 scoreHtml = `<div class="import-item-score">~${file.difference.toFixed(2)}% different</div>`;
+            } else {
+                 scoreHtml = `<div class="import-item-score">New file</div>`;
+            }
+
 
             if (file.found) {
                 li.dataset.path = file.path; // The full path of the project file
@@ -992,11 +1091,13 @@
                         <div class="import-item-name">${file.displayPath.split(/[\\/]/).pop()}</div>
                         <div class="import-item-path">${file.displayPath.substring(0, file.displayPath.lastIndexOf('/'))}</div>
                     </div>
-                    ${warningHtml}
-                    <div class="import-item-score">~${file.difference.toFixed(2)}% different</div>
+                    ${badgesHtml}
+                    ${scoreHtml}
                 `;
             } else {
-                li.classList.add('not-found');
+                if (!file.isDiff) {
+                    li.classList.add('not-found');
+                }
                 li.dataset.path = file.path; // The relative path from clipboard
                 const fileBaseName = file.path.split(/[\\/]/).pop();
                 const fileDir = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '.';
@@ -1006,8 +1107,8 @@
                         <div class="import-item-name">${fileBaseName}</div>
                         <div class="import-item-path">${fileDir}</div>
                     </div>
-                    ${warningHtml}
-                    <div class="import-item-score">New file</div>
+                    ${badgesHtml}
+                    ${scoreHtml}
                 `;
             }
             importList.appendChild(li);
@@ -1043,4 +1144,4 @@
 
 </script>
 </body>
-</html>
+</html>
