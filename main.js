@@ -770,7 +770,17 @@ function parseFilesFromClipboard(clipboardText) {
         if (!filePath) continue;
 
         // 2. Extract All Code Blocks for this File
-        const contentPart = section.substring(firstLineEnd);
+        let contentPart = section.substring(firstLineEnd);
+
+        // --- FIX START: Stop parsing if we hit the app's footer sections ---
+        // The previous split logic leaves the "Project Structure" and "User's prompt" 
+        // attached to the last file because they start with '## ' not '### '.
+        const footerMatch = contentPart.match(/(?:\r?\n|^)## (?:Project Structure:|User's prompt:)/);
+        if (footerMatch) {
+            contentPart = contentPart.substring(0, footerMatch.index);
+        }
+        // --- FIX END ---
+
         // Regex to find content inside ```code ... ``` blocks
         const codeBlockRegex = /```(?:[^\n]*)\n([\s\S]*?)```/g;
         let blockMatch;
