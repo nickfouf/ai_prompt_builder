@@ -34,6 +34,12 @@ const EXT_MAP = {
     gradle: 'Groovy',
     bat: 'bat',
     support: '',
+    cs: 'C#',
+    cshtml: 'HTML',
+    vb: 'VB.NET',
+    fs: 'F#',
+    fsx: 'F#',
+    makefile: 'Makefile',
 };
 
 const getAllFiles = (dir, files = []) => {
