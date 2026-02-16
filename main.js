@@ -40,6 +40,8 @@ const EXT_MAP = {
     fs: 'F#',
     fsx: 'F#',
     makefile: 'Makefile',
+    m: 'Matlab',
+
 };
 
 const getAllFiles = (dir, files = []) => {
