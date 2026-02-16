@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder",
-    "release": "electron-builder --publish always"
+    "release": "dotenv -- electron-builder --publish always"
   },
   "build": {
     "appId": "com.example.aipromptbuilder",
