@@ -25,22 +25,95 @@ let currentSession = {
 
 // --- File processing logic and helpers ---
 const EXT_MAP = {
+    // --- Original Entries ---
     java: 'Java', kt: 'Kotlin', kts: 'Kotlin', txt: '', html: 'HTML', js: 'JavaScript',
     json: 'JSON', php: 'PHP', cpp: 'C++', c: 'C', h: 'C', css: 'CSS',
     py: 'Python', rb: 'Ruby', rs: 'Rust', go: 'Go', ts: 'TypeScript',
     jsx: 'JavaScript', tsx: 'TypeScript', sh: 'bash', xml: 'XML',
     yml: 'YAML', yaml: 'YAML', md: 'Markdown', swift: 'Swift', scala: 'Scala',
-    sql: 'SQL', dart: 'Dart', lua: 'Lua', r: 'R',
-    gradle: 'Groovy',
-    bat: 'bat',
-    support: '',
-    cs: 'C#',
-    cshtml: 'HTML',
-    vb: 'VB.NET',
-    fs: 'F#',
-    fsx: 'F#',
-    makefile: 'Makefile',
-    m: 'Matlab',
+    sql: 'SQL', dart: 'Dart', lua: 'Lua', r: 'R', gradle: 'Groovy', bat: 'bat',
+    support: '', cs: 'C#', cshtml: 'HTML', vb: 'VB.NET', fs: 'F#', fsx: 'F#',
+    makefile: 'Makefile', m: 'Matlab', gyp: 'GYP',
+
+    // --- Modern Web & Frameworks ---
+    vue: 'Vue',
+    svelte: 'Svelte',
+    astro: 'Astro',
+    htm: 'HTML',
+    xhtml: 'HTML',
+    scss: 'SCSS',
+    sass: 'Sass',
+    less: 'Less',
+    pug: 'Pug',
+    ejs: 'EJS',
+    twig: 'Twig',
+    mjs: 'JavaScript',
+    cjs: 'JavaScript',
+    mts: 'TypeScript',
+    cts: 'TypeScript',
+
+    // --- Configuration & Data ---
+    toml: 'TOML',
+    ini: 'INI',
+    env: 'Dotenv',
+    conf: 'Configuration',
+    cfg: 'Configuration',
+    properties: 'Properties',
+    csv: 'CSV',
+    tsv: 'TSV',
+    jsonc: 'JSON with Comments',
+    json5: 'JSON5',
+
+    // --- Shell & Scripting ---
+    bash: 'bash',
+    zsh: 'zsh',
+    fish: 'fish',
+    ps1: 'PowerShell',
+    psm1: 'PowerShell',
+    pl: 'Perl',
+    pm: 'Perl',
+
+    // --- C/C++ Ecosystem & Apple ---
+    hpp: 'C++',
+    cxx: 'C++',
+    hxx: 'C++',
+    cc: 'C++',
+    mm: 'Objective-C++', // Note: 'm' is often Objective-C, but kept as Matlab per your original
+    swift: 'Swift',
+
+    // --- Other Programming Languages ---
+    zig: 'Zig',
+    nim: 'Nim',
+    jl: 'Julia',
+    gd: 'GDScript',
+    ex: 'Elixir',
+    exs: 'Elixir',
+    erl: 'Erlang',
+    hs: 'Haskell',
+    clj: 'Clojure',
+    cljs: 'ClojureScript',
+    edn: 'EDN',
+    el: 'Emacs Lisp',
+    ml: 'OCaml',
+    v: 'V',
+
+    // --- Infrastructure as Code (IaC) & DevOps ---
+    tf: 'Terraform',
+    tfvars: 'Terraform',
+    hcl: 'HCL',
+    dockerfile: 'Dockerfile',
+    vagrantfile: 'Ruby',
+
+    // --- Smart Contracts ---
+    sol: 'Solidity',
+
+    // --- Documentation & Version Control ---
+    rst: 'reStructuredText',
+    tex: 'TeX',
+    adoc: 'AsciiDoc',
+    patch: 'Diff',
+    diff: 'Diff',
+    log: 'Log'
 };
 
 const getAllFiles = (dir, files = []) => {

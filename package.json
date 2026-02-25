@@ -1,6 +1,6 @@
 {
   "name": "ai-prompt-builder",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "AI Prompt Builder desktop app",
   "author": "Your Name",
   "main": "main.js",
@@ -45,6 +45,7 @@
     ]
   },
   "devDependencies": {
+    "dotenv-cli": "^10.0.0",
     "electron": "^33.0.0",
     "electron-builder": "^26.0.12"
   },
